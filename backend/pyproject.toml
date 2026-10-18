@@ -1,0 +1,16 @@
+[project]
+name = "backend"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "cryptography>=50.0.2",
+    "django>=6.1.2",
+    "django-cors-headers>=4.9.0",
+    "django-rest-framework>=0.1.0",
+    "djangorestframework-simplejwt>=5.5.1",
+    "opencv-python>=5.0.0.93",
+    "pyzbar>=0.1.9",
+    "qrcode[pil]>=8.2",
+]
