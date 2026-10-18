@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { getDoctors } from '../../api/doctors';
-import { requestConsultation } from '../../api/doctors';
+import { createAppointment } from '../../api/appointments';
 import LoadingSpinner from '../../components/LoadingSpinner';
-import { Search, MapPin, Filter, X, Star, DollarSign } from 'lucide-react';
+import { Search, MapPin, Filter, X, DollarSign, Video, Phone, User } from 'lucide-react';
 
 const SPECIALIZATIONS = [
   'General Practice',
@@ -30,8 +30,12 @@ export default function FindDoctors() {
   });
   const [location, setLocation] = useState(null);
   const [locLoading, setLocLoading] = useState(false);
+  
+  // Modal State
   const [modal, setModal] = useState(null); // { doctor }
-  const [modalNote, setModalNote] = useState('');
+  const [scheduledAt, setScheduledAt] = useState('');
+  const [mode, setMode] = useState('in_person');
+  const [patientNotes, setPatientNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const load = async (params = {}) => {
@@ -80,15 +84,30 @@ export default function FindDoctors() {
     );
   };
 
-  const handleRequest = async () => {
+  const handleRequest = async (e) => {
+    e.preventDefault();
+    if (!scheduledAt) {
+      toast.error('Please pick a date and time for the appointment');
+      return;
+    }
+
     setSubmitting(true);
     try {
-      await requestConsultation(modal.doctor.id, { note: modalNote });
-      toast.success('Consultation request sent!');
+      await createAppointment({
+        doctor: modal.doctor.id,
+        scheduled_at: new Date(scheduledAt).toISOString(),
+        mode,
+        patient_notes: patientNotes,
+      });
+      toast.success('Consultation requested successfully!');
+      
+      // Reset Modal State
       setModal(null);
-      setModalNote('');
+      setScheduledAt('');
+      setMode('in_person');
+      setPatientNotes('');
     } catch (err) {
-      toast.error(err.response?.data?.detail ?? 'Failed to send request');
+      toast.error(err.response?.data?.error || err.response?.data?.detail || 'Failed to request consultation');
     } finally {
       setSubmitting(false);
     }
@@ -228,51 +247,23 @@ export default function FindDoctors() {
     overlay: {
       position: 'fixed',
       inset: 0,
-      background: 'rgba(0,0,0,0.4)',
+      background: 'rgba(15, 23, 42, 0.45)',
+      backdropFilter: 'blur(3px)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      zIndex: 999,
+      zIndex: 1000,
+      padding: 20,
     },
     modal: {
       background: '#fff',
-      borderRadius: 16,
-      padding: 28,
+      borderRadius: 18,
+      padding: '28px 24px',
       width: '100%',
-      maxWidth: 440,
-      boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+      maxWidth: 520,
+      boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
     },
-    modalTitle: { fontSize: 18, fontWeight: 700, color: '#0f172a', marginBottom: 8 },
-    textarea: {
-      width: '100%',
-      padding: '10px 12px',
-      border: '1.5px solid #e2e8f0',
-      borderRadius: 9,
-      fontSize: 14,
-      resize: 'vertical',
-      minHeight: 80,
-      outline: 'none',
-      boxSizing: 'border-box',
-      marginBottom: 16,
-    },
-    modalBtns: { display: 'flex', gap: 10, justifyContent: 'flex-end' },
-    cancelBtn: {
-      padding: '9px 18px',
-      background: '#f1f5f9',
-      border: 'none',
-      borderRadius: 9,
-      cursor: 'pointer',
-      fontWeight: 600,
-    },
-    confirmBtn: {
-      padding: '9px 18px',
-      background: '#0ea5e9',
-      color: '#fff',
-      border: 'none',
-      borderRadius: 9,
-      cursor: 'pointer',
-      fontWeight: 700,
-    },
+    modalTitle: { fontSize: 18, fontWeight: 800, color: '#0f172a' },
     checkLabel: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' },
   };
 
@@ -395,7 +386,12 @@ export default function FindDoctors() {
                 )}
                 <button
                   style={s.reqBtn}
-                  onClick={() => setModal({ doctor: doc })}
+                  onClick={() => {
+                    setModal({ doctor: doc });
+                    setScheduledAt('');
+                    setMode('in_person');
+                    setPatientNotes('');
+                  }}
                 >
                   Request Consultation
                 </button>
@@ -405,34 +401,124 @@ export default function FindDoctors() {
         </div>
       )}
 
+      {/* Advanced Booking Modal */}
       {modal && (
         <div style={s.overlay} onClick={() => setModal(null)}>
           <div style={s.modal} onClick={(e) => e.stopPropagation()}>
-            <div style={s.modalTitle}>
-              Request Consultation with Dr.{' '}
-              {modal.doctor.user?.first_name} {modal.doctor.user?.last_name}
-            </div>
-            <p style={{ color: '#64748b', fontSize: 13, marginBottom: 14 }}>
-              Add a brief note about your concern (optional):
-            </p>
-            <textarea
-              style={s.textarea}
-              placeholder="Describe your symptoms or reason for consultation…"
-              value={modalNote}
-              onChange={(e) => setModalNote(e.target.value)}
-            />
-            <div style={s.modalBtns}>
-              <button style={s.cancelBtn} onClick={() => setModal(null)}>
-                Cancel
-              </button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h2 style={s.modalTitle}>
+                Request Consultation
+              </h2>
               <button
-                style={s.confirmBtn}
-                onClick={handleRequest}
-                disabled={submitting}
+                onClick={() => setModal(null)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}
               >
-                {submitting ? 'Sending…' : 'Send Request'}
+                <X size={20} />
               </button>
             </div>
+
+            <form onSubmit={handleRequest}>
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6 }}>
+                  Selected Doctor
+                </label>
+                <div style={{ padding: '10px 12px', borderRadius: 8, background: '#f8fafc', border: '1.5px solid #e2e8f0', fontSize: 14, fontWeight: 600, color: '#0f172a' }}>
+                  Dr. {modal.doctor.user?.first_name} {modal.doctor.user?.last_name} ({modal.doctor.specialization})
+                </div>
+              </div>
+
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6 }}>
+                  Date & Time <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <input
+                  type="datetime-local"
+                  value={scheduledAt}
+                  onChange={(e) => setScheduledAt(e.target.value)}
+                  required
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1.5px solid #cbd5e1', fontSize: 14, boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6 }}>
+                  Consultation Mode <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                  {[
+                    { value: 'in_person', label: 'In Person', icon: User },
+                    { value: 'video', label: 'Video Call', icon: Video },
+                    { value: 'phone', label: 'Phone', icon: Phone },
+                  ].map((m) => {
+                    const Icon = m.icon;
+                    const active = mode === m.value;
+                    return (
+                      <button
+                        key={m.value}
+                        type="button"
+                        onClick={() => setMode(m.value)}
+                        style={{
+                          padding: '10px 8px',
+                          borderRadius: 8,
+                          border: `1.5px solid ${active ? '#0ea5e9' : '#e2e8f0'}`,
+                          background: active ? '#f0f9ff' : '#fff',
+                          color: active ? '#0ea5e9' : '#475569',
+                          fontWeight: active ? 700 : 500,
+                          fontSize: 12.5,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          gap: 4,
+                        }}
+                      >
+                        <Icon size={16} />
+                        {m.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6 }}>
+                  Reason for Consultation / Notes
+                </label>
+                <textarea
+                  rows={2}
+                  value={patientNotes}
+                  onChange={(e) => setPatientNotes(e.target.value)}
+                  placeholder="Briefly describe your symptoms or routine checkup requirement..."
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1.5px solid #cbd5e1', fontSize: 13.5, boxSizing: 'border-box', resize: 'vertical', minHeight: '80px' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                <button
+                  type="button"
+                  onClick={() => setModal(null)}
+                  style={{ padding: '9px 16px', borderRadius: 8, border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer', fontWeight: 600, color: '#475569' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  style={{
+                    background: '#0ea5e9',
+                    color: '#fff',
+                    border: 'none',
+                    padding: '9px 20px',
+                    borderRadius: 8,
+                    fontSize: 14,
+                    fontWeight: 700,
+                    cursor: submitting ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  {submitting ? 'Scheduling...' : 'Confirm Request'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

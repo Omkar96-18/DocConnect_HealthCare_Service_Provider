@@ -1,11 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getAppointments } from '../../api/appointments';
+import { getAppointments, createAppointment } from '../../api/appointments';
 import { getConversations } from '../../api/messages';
 import { getPrescriptions } from '../../api/prescriptions';
+import { getAccessList } from '../../api/doctors';
 import { useAuth } from '../../context/AuthContext';
 import LoadingSpinner from '../../components/LoadingSpinner';
-import { Calendar, MessageCircle, FileText, ArrowRight, Search, Stethoscope, CheckCircle2, Clock } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { 
+  Calendar, MessageCircle, FileText, ArrowRight, Search, 
+  X, Video, Phone, User, AlertCircle, Plus 
+} from 'lucide-react';
 
 const STATUS_COLORS = {
   requested: { bg: '#fffbeb', color: '#b45309', border: '#fde68a' },
@@ -18,25 +23,84 @@ const STATUS_COLORS = {
 
 export default function PatientDashboard() {
   const { user, profile } = useAuth();
+  
+  // Dashboard Data State
   const [appointments, setAppointments] = useState([]);
   const [conversations, setConversations] = useState([]);
   const [prescriptions, setPrescriptions] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // Booking Modal State
+  const [showBookModal, setShowBookModal] = useState(false);
+  const [approvedDoctors, setApprovedDoctors] = useState([]);
+  const [selectedDoctorId, setSelectedDoctorId] = useState('');
+  const [scheduledAt, setScheduledAt] = useState('');
+  const [mode, setMode] = useState('in_person');
+  const [patientNotes, setPatientNotes] = useState('');
+  const [booking, setBooking] = useState(false);
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const [apptRes, convRes, prescRes, accRes] = await Promise.all([
+        getAppointments(),
+        getConversations(),
+        getPrescriptions(),
+        getAccessList(),
+      ]);
+      
+      setAppointments(Array.isArray(apptRes.data) ? apptRes.data : apptRes.data.results ?? []);
+      setConversations(Array.isArray(convRes.data) ? convRes.data : convRes.data.results ?? []);
+      setPrescriptions(Array.isArray(prescRes.data) ? prescRes.data : prescRes.data.results ?? []);
+      
+      // Load approved doctors for the booking modal
+      const accesses = Array.isArray(accRes.data) ? accRes.data : accRes.data.results ?? [];
+      const approved = accesses.filter((a) => a.status === 'approved');
+      setApprovedDoctors(approved);
+      if (approved.length > 0 && !selectedDoctorId) {
+        setSelectedDoctorId(approved[0].doctor);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    Promise.all([
-      getAppointments(),
-      getConversations(),
-      getPrescriptions(),
-    ])
-      .then(([apptRes, convRes, prescRes]) => {
-        setAppointments(Array.isArray(apptRes.data) ? apptRes.data : apptRes.data.results ?? []);
-        setConversations(Array.isArray(convRes.data) ? convRes.data : convRes.data.results ?? []);
-        setPrescriptions(Array.isArray(prescRes.data) ? prescRes.data : prescRes.data.results ?? []);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleBook = async (e) => {
+    e.preventDefault();
+    if (!selectedDoctorId) {
+      toast.error('Please select a doctor with approved consultation access');
+      return;
+    }
+    if (!scheduledAt) {
+      toast.error('Please pick a date and time for the appointment');
+      return;
+    }
+
+    setBooking(true);
+    try {
+      await createAppointment({
+        doctor: selectedDoctorId,
+        scheduled_at: new Date(scheduledAt).toISOString(),
+        mode,
+        patient_notes: patientNotes,
+      });
+      toast.success('Appointment requested successfully!');
+      setShowBookModal(false);
+      setPatientNotes('');
+      loadData(); // Refresh dashboard data after booking
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.response?.data?.detail || 'Failed to book appointment');
+    } finally {
+      setBooking(false);
+    }
+  };
 
   if (loading) return <LoadingSpinner fullscreen={false} />;
 
@@ -126,26 +190,47 @@ export default function PatientDashboard() {
             Find & Consult Nearby Doctors
           </h2>
           <p style={{ fontSize: 13.5, opacity: 0.9, margin: 0, maxWidth: 540 }}>
-            Use geolocation to discover qualified doctors near your location, compare consultation fees, and submit direct or assistant-approved requests.
+            Use geolocation to discover qualified doctors near your location, compare consultation fees, and request an appointment.
           </p>
         </div>
-        <Link
-          to="/patient/find-doctors"
-          style={{
-            background: '#ffffff',
-            color: '#0284c7',
-            padding: '11px 20px',
-            borderRadius: 10,
-            fontSize: 13.5,
-            fontWeight: 700,
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 8,
-            boxShadow: '0 4px 10px rgba(0,0,0,0.1)',
-          }}
-        >
-          <Search size={16} /> Explore Doctors
-        </Link>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <button
+            onClick={() => setShowBookModal(true)}
+            style={{
+              background: '#ffffff',
+              color: '#0284c7',
+              padding: '11px 20px',
+              borderRadius: 10,
+              fontSize: 13.5,
+              fontWeight: 700,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              border: 'none',
+              cursor: 'pointer',
+              boxShadow: '0 4px 10px rgba(0,0,0,0.1)',
+            }}
+          >
+            <Plus size={16} /> Request Consultation
+          </button>
+          <Link
+            to="/patient/find-doctors"
+            style={{
+              background: 'rgba(255, 255, 255, 0.15)',
+              color: '#ffffff',
+              padding: '11px 20px',
+              borderRadius: 10,
+              fontSize: 13.5,
+              fontWeight: 600,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              textDecoration: 'none'
+            }}
+          >
+            <Search size={16} /> Explore Doctors
+          </Link>
+        </div>
       </div>
 
       {/* Recent Appointments */}
@@ -159,7 +244,13 @@ export default function PatientDashboard() {
 
         {appointments.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 36, color: '#94a3b8', fontSize: 13.5 }}>
-            No appointments scheduled yet. Click "Explore Doctors" to book a consultation.
+            No appointments scheduled yet. <br/><br/>
+            <button
+              onClick={() => setShowBookModal(true)}
+              style={{ background: '#0284c7', color: '#fff', border: 'none', padding: '9px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+            >
+              Request a Consultation
+            </button>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -184,7 +275,8 @@ export default function PatientDashboard() {
                     <div style={{ fontWeight: 700, fontSize: 14, color: '#0f172a' }}>{docName}</div>
                     <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
                       {new Date(a.scheduled_at).toLocaleDateString()} at{' '}
-                      {new Date(a.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • Mode: {a.mode.replace('_', ' ').toUpperCase()}
+                      {new Date(a.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {' | '}Mode: {a.mode ? a.mode.replace('_', ' ').toUpperCase() : 'PENDING'}
                     </div>
                   </div>
                   <span
@@ -199,7 +291,7 @@ export default function PatientDashboard() {
                       textTransform: 'capitalize',
                     }}
                   >
-                    {a.status.replace('_', ' ')}
+                    {(a.status || 'unknown').replace('_', ' ')}
                   </span>
                 </div>
               );
@@ -207,6 +299,174 @@ export default function PatientDashboard() {
           </div>
         )}
       </div>
+
+      {/* Book Appointment Modal (Imported from PatientAppointments) */}
+      {showBookModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.45)',
+            backdropFilter: 'blur(3px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: 20,
+          }}
+        >
+          <div
+            style={{
+              background: '#fff',
+              borderRadius: 18,
+              padding: '28px 24px',
+              maxWidth: 520,
+              width: '100%',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h2 style={{ fontSize: 18, fontWeight: 800, margin: 0, color: '#0f172a' }}>
+                Request Consultation
+              </h2>
+              <button
+                onClick={() => setShowBookModal(false)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {approvedDoctors.length === 0 ? (
+              <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, padding: 16, marginBottom: 16 }}>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                  <AlertCircle size={20} color="#b45309" style={{ flexShrink: 0, marginTop: 2 }} />
+                  <div style={{ fontSize: 13, color: '#92400e' }}>
+                    <strong>Access Required:</strong> You must request and receive consultation approval from a doctor or their assistant before booking.
+                    <div style={{ marginTop: 8 }}>
+                      <Link to="/patient/find-doctors" onClick={() => setShowBookModal(false)} style={{ color: '#0284c7', fontWeight: 700 }}>
+                        Browse Doctors & Request Access →
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleBook}>
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6 }}>
+                    Select Doctor <span style={{ color: '#ef4444' }}>*</span>
+                  </label>
+                  <select
+                    value={selectedDoctorId}
+                    onChange={(e) => setSelectedDoctorId(e.target.value)}
+                    required
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1.5px solid #cbd5e1', fontSize: 14 }}
+                  >
+                    {approvedDoctors.map((acc) => (
+                      <option key={acc.id} value={acc.doctor}>
+                        {acc.doctor_info?.name || `Doctor #${acc.doctor}`} ({acc.doctor_info?.specialization || 'General'})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6 }}>
+                    Date & Time <span style={{ color: '#ef4444' }}>*</span>
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={scheduledAt}
+                    onChange={(e) => setScheduledAt(e.target.value)}
+                    required
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1.5px solid #cbd5e1', fontSize: 14, boxSizing: 'border-box' }}
+                  />
+                </div>
+
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6 }}>
+                    Consultation Mode <span style={{ color: '#ef4444' }}>*</span>
+                  </label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                    {[
+                      { value: 'in_person', label: 'In Person', icon: User },
+                      { value: 'video', label: 'Video Call', icon: Video },
+                      { value: 'phone', label: 'Phone', icon: Phone },
+                    ].map((m) => {
+                      const Icon = m.icon;
+                      const active = mode === m.value;
+                      return (
+                        <button
+                          key={m.value}
+                          type="button"
+                          onClick={() => setMode(m.value)}
+                          style={{
+                            padding: '10px 8px',
+                            borderRadius: 8,
+                            border: `1.5px solid ${active ? '#0284c7' : '#e2e8f0'}`,
+                            background: active ? '#f0f9ff' : '#fff',
+                            color: active ? '#0284c7' : '#475569',
+                            fontWeight: active ? 700 : 500,
+                            fontSize: 12.5,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: 4,
+                          }}
+                        >
+                          <Icon size={16} />
+                          {m.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 20 }}>
+                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6 }}>
+                    Reason for Consultation / Notes
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={patientNotes}
+                    onChange={(e) => setPatientNotes(e.target.value)}
+                    placeholder="Briefly describe your symptoms or routine checkup requirement..."
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1.5px solid #cbd5e1', fontSize: 13.5, boxSizing: 'border-box' }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowBookModal(false)}
+                    style={{ padding: '9px 16px', borderRadius: 8, border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer' }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={booking}
+                    style={{
+                      background: '#0284c7',
+                      color: '#fff',
+                      border: 'none',
+                      padding: '9px 20px',
+                      borderRadius: 8,
+                      fontSize: 14,
+                      fontWeight: 700,
+                      cursor: booking ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    {booking ? 'Scheduling...' : 'Confirm Request'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
