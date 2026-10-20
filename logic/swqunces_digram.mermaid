@@ -1,0 +1,46 @@
+
+sequenceDiagram
+    actor Patient
+    participant UI as React Frontend
+    participant API as Django REST API
+    participant DB as Database
+    participant Assistant
+    participant Doctor
+    participant Notify as Notification Service
+
+    Patient->>UI: Select doctor and request consultation
+    UI->>API: POST /api/access/request/
+    API->>API: Authenticate and check patient role
+    API->>DB: Find doctor and existing access request
+    DB-->>API: Doctor and request details
+
+    alt Doctor has an assistant
+        API->>DB: Create or update pending access request
+        API->>Notify: Create assistant notification
+        Notify->>DB: Save notification
+        API-->>UI: Return pending access status
+        UI-->>Patient: Show request awaiting review
+
+        Assistant->>UI: Review patient request
+        UI->>API: POST /api/access/approve/{access_id}/
+        API->>API: Check assistant permission
+        API->>DB: Update access request status
+
+        alt Request approved
+            API->>DB: Enable messaging and create conversation
+            API->>Notify: Notify relevant user
+            API-->>UI: Return approved status
+            UI-->>Patient: Show consultation access granted
+        else Request rejected
+            API->>Notify: Notify relevant user
+            API-->>UI: Return rejected status
+            UI-->>Patient: Show request rejected
+        end
+
+    else Doctor has no assistant
+        API->>DB: Create approved access record
+        API->>DB: Create or retrieve conversation
+        API->>Notify: Notify doctor
+        API-->>UI: Return approved status
+        UI-->>Patient: Show direct consultation access
+    end

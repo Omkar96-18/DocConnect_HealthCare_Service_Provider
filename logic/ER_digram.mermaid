@@ -1,0 +1,160 @@
+
+erDiagram
+    CUSTOM_USER {
+        int id PK
+        string username
+        string email
+        string password
+        string role
+        string first_name
+        string last_name
+        string phone
+        string address
+        float latitude
+        float longitude
+        string profile_pic
+    }
+
+    MEDICAL_CENTER {
+        int id PK
+        string name
+        string address
+        float latitude
+        float longitude
+        string phone
+        string email
+        datetime created_at
+        datetime updated_at
+    }
+
+    DOCTOR_PROFILE {
+        int id PK
+        int user_id FK
+        int medical_center_id FK
+        int assistant_id FK
+        string specialization
+        int experience_years
+        decimal consultation_fee
+        string license_number
+        json available_days
+        time available_from
+        time available_to
+        boolean is_accepting_patients
+        boolean assistant_can_approve
+    }
+
+    ASSISTANT_PROFILE {
+        int id PK
+        int user_id FK
+        int medical_center_id FK
+    }
+
+    PATIENT_PROFILE {
+        int id PK
+        int user_id FK
+        date date_of_birth
+        string blood_group
+        text allergies
+        text medical_history
+        string emergency_contact_name
+        string emergency_contact_phone
+    }
+
+    DOCTOR_PATIENT_ACCESS {
+        int id PK
+        int doctor_id FK
+        int patient_id FK
+        string status
+        int approved_by_id FK
+        boolean can_message
+        boolean assistant_permission_granted
+        datetime created_at
+        datetime updated_at
+    }
+
+    APPOINTMENT {
+        int id PK
+        int doctor_id FK
+        int patient_id FK
+        int assistant_id FK
+        string mode
+        string status
+        datetime scheduled_at
+        text notes
+        text patient_notes
+        boolean approved_by_assistant
+        datetime approved_at
+        datetime created_at
+        datetime updated_at
+    }
+
+    CONVERSATION {
+        int id PK
+        int doctor_id FK
+        int patient_id FK
+        boolean is_active
+        datetime created_at
+    }
+
+    MESSAGE {
+        int id PK
+        int conversation_id FK
+        int sender_id FK
+        text content
+        boolean is_read
+        datetime created_at
+    }
+
+    PRESCRIPTION {
+        uuid id PK
+        int doctor_id FK
+        int patient_id FK
+        int appointment_id FK
+        json medicines
+        text diagnosis
+        text notes
+        string barcode_data
+        string barcode_image
+        boolean is_validated
+        int validated_by_id FK
+        datetime validated_at
+        datetime created_at
+    }
+
+    NOTIFICATION {
+        int id PK
+        int user_id FK
+        string title
+        text body
+        string notif_type
+        boolean is_read
+        datetime created_at
+    }
+
+    CUSTOM_USER ||--o| DOCTOR_PROFILE : has
+    CUSTOM_USER ||--o| PATIENT_PROFILE : has
+    CUSTOM_USER ||--o| ASSISTANT_PROFILE : has
+
+    MEDICAL_CENTER o|--o{ DOCTOR_PROFILE : employs
+    MEDICAL_CENTER o|--o{ ASSISTANT_PROFILE : accommodates
+    ASSISTANT_PROFILE o|--o{ DOCTOR_PROFILE : assists
+
+    DOCTOR_PROFILE ||--o{ DOCTOR_PATIENT_ACCESS : manages
+    CUSTOM_USER ||--o{ DOCTOR_PATIENT_ACCESS : requests
+    CUSTOM_USER o|--o{ DOCTOR_PATIENT_ACCESS : approves
+
+    DOCTOR_PROFILE ||--o{ APPOINTMENT : receives
+    CUSTOM_USER ||--o{ APPOINTMENT : books
+    ASSISTANT_PROFILE o|--o{ APPOINTMENT : coordinates
+
+    DOCTOR_PROFILE ||--o{ CONVERSATION : participates
+    CUSTOM_USER ||--o{ CONVERSATION : participates
+    CONVERSATION ||--o{ MESSAGE : contains
+    CUSTOM_USER ||--o{ MESSAGE : sends
+
+    DOCTOR_PROFILE ||--o{ PRESCRIPTION : issues
+    CUSTOM_USER ||--o{ PRESCRIPTION : receives
+    APPOINTMENT o|--o{ PRESCRIPTION : relates_to
+    CUSTOM_USER o|--o{ PRESCRIPTION : validates
+
+    CUSTOM_USER ||--o{ NOTIFICATION : receives

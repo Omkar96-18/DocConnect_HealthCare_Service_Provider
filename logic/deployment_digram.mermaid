@@ -1,0 +1,42 @@
+
+flowchart TB
+    User["Admin / Doctor / Patient / Assistant"]
+
+    subgraph Client["Client Device"]
+        Browser["Web Browser"]
+        React["React Application"]
+        Router["React Router"]
+        Axios["Axios API Client"]
+    end
+
+    subgraph Server["Backend Server"]
+        Django["Django Application"]
+        DRF["Django REST Framework"]
+        JWT["JWT Authentication"]
+        ASGI["ASGI Application"]
+        Channels["Django Channels"]
+        Consumer["Chat WebSocket Consumer"]
+        Media["Media Storage<br/>QR and profile images"]
+    end
+
+    subgraph Data["Persistence Layer"]
+        DB[("Django Database<br/>Configured Database")]
+        ChannelLayer[("Channel Layer<br/>Configured Backend")]
+    end
+
+    User --> Browser
+    Browser --> React
+    React --> Router
+    React --> Axios
+
+    Axios -->|"HTTPS / REST API"| DRF
+    DRF --> Django
+    DRF --> JWT
+    Django --> DB
+    Django --> Media
+
+    React -->|"WebSocket with JWT"| ASGI
+    ASGI --> Channels
+    Channels --> Consumer
+    Consumer --> DB
+    Consumer <--> ChannelLayer

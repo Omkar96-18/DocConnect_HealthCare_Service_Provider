@@ -1,0 +1,64 @@
+
+flowchart LR
+    Admin["Admin"]
+    Doctor["Doctor"]
+    Patient["Patient"]
+    Assistant["Assistant"]
+
+    subgraph System["DocConnect Healthcare System"]
+        UC1(["Manage Users"])
+        UC2(["Manage Medical Centers"])
+        UC3(["View Dashboard Statistics"])
+
+        UC4(["Manage Doctor Profile"])
+        UC5(["View Patient Access Requests"])
+        UC6(["Approve or Reject Access"])
+        UC7(["Manage Appointments"])
+        UC8(["Create Prescriptions"])
+        UC9(["Assign Assistant"])
+        UC10(["Grant Assistant Permissions"])
+
+        UC11(["Register and Login"])
+        UC12(["Manage Patient Profile"])
+        UC13(["Find Doctors"])
+        UC14(["Request Consultation Access"])
+        UC15(["Book Appointments"])
+        UC16(["Exchange Messages"])
+        UC17(["View Prescriptions"])
+        UC18(["Receive Notifications"])
+
+        UC19(["Review Patient Requests"])
+        UC20(["Validate Prescription Barcode"])
+        UC21(["View Clinical Assignment"])
+    end
+
+    Admin --> UC1
+    Admin --> UC2
+    Admin --> UC3
+
+    Doctor --> UC4
+    Doctor --> UC7
+    Doctor --> UC8
+    Doctor --> UC9
+    Doctor --> UC10
+    Doctor --> UC16
+    Doctor --> UC18
+
+    Patient --> UC11
+    Patient --> UC12
+    Patient --> UC13
+    Patient --> UC14
+    Patient --> UC15
+    Patient --> UC16
+    Patient --> UC17
+    Patient --> UC18
+
+    Assistant --> UC19
+    Assistant --> UC6
+    Assistant --> UC20
+    Assistant --> UC21
+    Assistant --> UC18
+
+    UC14 -.-> UC5
+    UC5 -.-> UC6
+    UC8 -.-> UC17

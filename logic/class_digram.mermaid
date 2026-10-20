@@ -1,0 +1,120 @@
+
+classDiagram
+    class CustomUser {
+        +int id
+        +string username
+        +string email
+        +string role
+        +string phone
+        +string address
+        +float latitude
+        +float longitude
+    }
+
+    class MedicalCenter {
+        +int id
+        +string name
+        +string address
+        +float latitude
+        +float longitude
+        +string phone
+        +string email
+    }
+
+    class DoctorProfile {
+        +int id
+        +string specialization
+        +int experience_years
+        +decimal consultation_fee
+        +string license_number
+        +boolean is_accepting_patients
+        +boolean assistant_can_approve
+    }
+
+    class AssistantProfile {
+        +int id
+        +int user_id
+        +int medical_center_id
+        +doctor()
+    }
+
+    class PatientProfile {
+        +int id
+        +date date_of_birth
+        +string blood_group
+        +text allergies
+        +text medical_history
+    }
+
+    class DoctorPatientAccess {
+        +int id
+        +string status
+        +boolean can_message
+        +boolean assistant_permission_granted
+    }
+
+    class Appointment {
+        +int id
+        +string mode
+        +string status
+        +datetime scheduled_at
+        +text notes
+        +approve()
+        +cancel()
+    }
+
+    class Conversation {
+        +int id
+        +boolean is_active
+        +datetime created_at
+    }
+
+    class Message {
+        +int id
+        +text content
+        +boolean is_read
+        +datetime created_at
+    }
+
+    class Prescription {
+        +UUID id
+        +json medicines
+        +text diagnosis
+        +string barcode_data
+        +boolean is_validated
+        +datetime validated_at
+    }
+
+    class Notification {
+        +int id
+        +string title
+        +text body
+        +string notif_type
+        +boolean is_read
+    }
+
+    CustomUser "1" --> "0..1" DoctorProfile : profile
+    CustomUser "1" --> "0..1" PatientProfile : profile
+    CustomUser "1" --> "0..1" AssistantProfile : profile
+
+    MedicalCenter "0..1" --> "0..*" DoctorProfile : employs
+    MedicalCenter "0..1" --> "0..*" AssistantProfile : accommodates
+    AssistantProfile "0..1" --> "0..*" DoctorProfile : assists
+
+    DoctorProfile "1" --> "*" DoctorPatientAccess : access requests
+    CustomUser "1" --> "*" DoctorPatientAccess : patient
+    DoctorProfile "1" --> "*" Appointment : appointments
+    CustomUser "1" --> "*" Appointment : books
+    AssistantProfile "0..1" --> "*" Appointment : coordinates
+
+    DoctorProfile "1" --> "*" Conversation : conversations
+    CustomUser "1" --> "*" Conversation : patient
+    Conversation "1" --> "*" Message : messages
+    CustomUser "1" --> "*" Message : sender
+
+    DoctorProfile "1" --> "*" Prescription : issues
+    CustomUser "1" --> "*" Prescription : receives
+    Appointment "0..1" --> "*" Prescription : associated
+
+    CustomUser "1" --> "*" Notification : receives
+    CustomUser "0..1" --> "*" Prescription : validates

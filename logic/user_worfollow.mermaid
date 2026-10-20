@@ -1,0 +1,74 @@
+
+flowchart TD
+    Start([Start])
+    Login["Open DocConnect"]
+    Auth["Register or Login"]
+    Validate{"Credentials valid?"}
+    Role{"Identify user role"}
+
+    Admin["Admin Dashboard"]
+    Doctor["Doctor Dashboard"]
+    Patient["Patient Dashboard"]
+    Assistant["Assistant Dashboard"]
+
+    AdminTasks["Manage Users<br/>Manage Medical Centers<br/>View Statistics"]
+
+    DoctorTasks["Manage Profile<br/>Manage Appointments<br/>Manage Patients<br/>Create Prescriptions<br/>Assign Assistant"]
+
+    PatientTasks["Update Profile<br/>Find Doctors<br/>Request Consultation<br/>Book Appointments<br/>View Prescriptions"]
+
+    AssistantTasks["Review Access Requests<br/>Coordinate Appointments<br/>Validate Prescription Barcodes<br/>View Assignment"]
+
+    Access{"Consultation access available?"}
+    Request["Submit Access Request"]
+    Review{"Assistant approval required?"}
+    AssistantReview["Assistant Reviews Request"]
+    DoctorReview["Doctor Handles Request"]
+    Chat["Open Consultation Conversation"]
+    Appointment["Manage Appointment"]
+    Prescription["Issue or View Prescription"]
+    Barcode{"Prescription requires validation?"}
+    ValidateBarcode["Assistant Validates Barcode"]
+    Notification["Receive Notifications"]
+    End([Continue Using DocConnect])
+
+    Start --> Login
+    Login --> Auth
+    Auth --> Validate
+    Validate -- No --> Login
+    Validate -- Yes --> Role
+
+    Role --> Admin
+    Role --> Doctor
+    Role --> Patient
+    Role --> Assistant
+
+    Admin --> AdminTasks
+    AdminTasks --> Notification
+
+    Doctor --> DoctorTasks
+    DoctorTasks --> Appointment
+    Appointment --> Prescription
+
+    Patient --> PatientTasks
+    PatientTasks --> Access
+    Access -- No --> Request
+    Request --> Review
+    Review -- Yes --> AssistantReview
+    AssistantReview --> Chat
+    Review -- No --> DoctorReview
+    DoctorReview --> Chat
+    Access -- Yes --> Chat
+
+    Chat --> Appointment
+    Prescription --> Barcode
+    PatientTasks --> Prescription
+    Barcode -- Yes --> ValidateBarcode
+    Barcode -- No --> Notification
+    ValidateBarcode --> Notification
+    Appointment --> Notification
+    Notification --> End
+
+    Assistant --> AssistantTasks
+    AssistantTasks --> AssistantReview
+    AssistantTasks --> ValidateBarcode
