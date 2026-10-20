@@ -114,8 +114,8 @@ export default function FindDoctors() {
   };
 
   const s = {
-    h1: { fontSize: 22, fontWeight: 700, color: '#0f172a', marginBottom: 6 },
-    sub: { color: '#64748b', marginBottom: 24, fontSize: 14 },
+    h1: { fontSize: 24, fontWeight: 700, color: '#101820', marginBottom: 6, letterSpacing: '-0.04em' },
+    sub: { color: '#6E7882', marginBottom: 24, fontSize: 12, letterSpacing: '0.01em' },
     searchBar: {
       display: 'flex',
       gap: 10,
@@ -126,38 +126,38 @@ export default function FindDoctors() {
       flex: 1,
       minWidth: 200,
       padding: '10px 14px 10px 38px',
-      border: '1.5px solid #e2e8f0',
-      borderRadius: 10,
+      border: '1.5px solid #DCE2E7',
+      borderRadius: 4,
       fontSize: 14,
       outline: 'none',
     },
     searchWrap: { position: 'relative', flex: 1, minWidth: 200 },
     searchIcon: { position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' },
     filtersPanel: {
-      background: '#fff',
-      borderRadius: 12,
+      background: '#FFFFFF',
+      borderRadius: 4,
       padding: '16px 20px',
       marginBottom: 24,
-      boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+      boxShadow: '0 2px 8px rgba(16,24,32,0.04)',
       display: 'flex',
       gap: 14,
       flexWrap: 'wrap',
       alignItems: 'flex-end',
     },
     filterGroup: { display: 'flex', flexDirection: 'column', gap: 4 },
-    filterLabel: { fontSize: 12, fontWeight: 600, color: '#64748b' },
+    filterLabel: { fontSize: 12, fontWeight: 600, color: '#6E7882' },
     select: {
       padding: '8px 12px',
-      border: '1.5px solid #e2e8f0',
-      borderRadius: 8,
+      border: '1.5px solid #DCE2E7',
+      borderRadius: 4,
       fontSize: 13,
       outline: 'none',
-      background: '#fff',
+      background: '#FFFFFF',
     },
     input: {
       padding: '8px 12px',
-      border: '1.5px solid #e2e8f0',
-      borderRadius: 8,
+      border: '1.5px solid #DCE2E7',
+      borderRadius: 4,
       fontSize: 13,
       width: 90,
       outline: 'none',
@@ -167,23 +167,25 @@ export default function FindDoctors() {
       alignItems: 'center',
       gap: 6,
       padding: '8px 14px',
-      background: location ? '#dcfce7' : '#f1f5f9',
-      color: location ? '#166534' : '#374151',
+      background: location ? '#FFF3EC' : '#FFFFFF',
+      color: location ? '#B94D1B' : '#101820',
       border: 'none',
-      borderRadius: 8,
+      borderRadius: 4,
       cursor: 'pointer',
       fontSize: 13,
       fontWeight: 600,
     },
     searchBtn: {
       padding: '8px 20px',
-      background: '#0ea5e9',
-      color: '#fff',
-      border: 'none',
-      borderRadius: 8,
+      background: '#1769D2',
+      color: '#FFFFFF',
+      border: '1px solid #1769D2',
+      borderRadius: 4,
       cursor: 'pointer',
       fontWeight: 700,
-      fontSize: 14,
+      fontSize: 12,
+      letterSpacing: '0.04em',
+      textTransform: 'uppercase',
     },
     grid: {
       display: 'grid',
@@ -191,10 +193,10 @@ export default function FindDoctors() {
       gap: 16,
     },
     card: {
-      background: '#fff',
-      borderRadius: 14,
+      background: '#FFFFFF',
+      borderRadius: 4,
       padding: 20,
-      boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+      boxShadow: '0 2px 12px rgba(16,24,32,0.04)',
       display: 'flex',
       flexDirection: 'column',
       gap: 10,
@@ -203,8 +205,9 @@ export default function FindDoctors() {
       width: 52,
       height: 52,
       borderRadius: '50%',
-      background: '#0ea5e9',
-      color: '#fff',
+      background: '#101820',
+      color: '#FFFFFF',
+      borderLeft: '3px solid #F07838',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -212,21 +215,21 @@ export default function FindDoctors() {
       fontSize: 20,
     },
     cardHeader: { display: 'flex', gap: 12, alignItems: 'center' },
-    docName: { fontWeight: 700, fontSize: 16, color: '#1e293b' },
-    spec: { fontSize: 13, color: '#64748b' },
+    docName: { fontWeight: 700, fontSize: 16, color: '#101820' },
+    spec: { fontSize: 13, color: '#6E7882' },
     badge: {
       display: 'inline-block',
       padding: '2px 10px',
-      borderRadius: 20,
+      borderRadius: 3,
       fontSize: 12,
       fontWeight: 600,
-      background: '#dcfce7',
-      color: '#166534',
+      background: '#FFF3EC',
+      color: '#B94D1B',
     },
-    meta: { display: 'flex', gap: 16, fontSize: 13, color: '#64748b' },
+    meta: { display: 'flex', gap: 16, fontSize: 13, color: '#6E7882' },
     bio: {
       fontSize: 13,
-      color: '#475569',
+      color: '#6E7882',
       display: '-webkit-box',
       WebkitLineClamp: 2,
       WebkitBoxOrient: 'vertical',
@@ -235,19 +238,21 @@ export default function FindDoctors() {
     reqBtn: {
       marginTop: 4,
       padding: '9px',
-      background: '#0ea5e9',
-      color: '#fff',
-      border: 'none',
-      borderRadius: 9,
+      background: '#1769D2',
+      color: '#FFFFFF',
+      border: '1px solid #1769D2',
+      borderRadius: 4,
       cursor: 'pointer',
       fontWeight: 700,
-      fontSize: 14,
+      fontSize: 12,
+      letterSpacing: '0.04em',
+      textTransform: 'uppercase',
     },
-    empty: { textAlign: 'center', color: '#94a3b8', padding: 40 },
+    empty: { textAlign: 'center', color: '#6E7882', padding: 40 },
     overlay: {
       position: 'fixed',
       inset: 0,
-      background: 'rgba(15, 23, 42, 0.45)',
+      background: 'rgba(16, 24, 32, 0.56)',
       backdropFilter: 'blur(3px)',
       display: 'flex',
       alignItems: 'center',
@@ -256,26 +261,40 @@ export default function FindDoctors() {
       padding: 20,
     },
     modal: {
-      background: '#fff',
-      borderRadius: 18,
+      background: '#FFFFFF',
+      borderRadius: 4,
       padding: '28px 24px',
       width: '100%',
       maxWidth: 520,
-      boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
+      boxShadow: '0 18px 48px rgba(16,24,32,0.18)',
     },
-    modalTitle: { fontSize: 18, fontWeight: 800, color: '#0f172a' },
+    modalTitle: { fontSize: 18, fontWeight: 800, color: '#101820' },
     checkLabel: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' },
   };
 
   return (
-    <div>
-      <div style={s.h1}>Find Doctors</div>
+    <div
+      style={{
+        minHeight: '100%',
+        padding: 'clamp(16px, 2.5vw, 32px)',
+        backgroundColor: '#FFFFFF',
+        backgroundImage: 'linear-gradient(rgba(16,24,32,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(16,24,32,0.025) 1px, transparent 1px)',
+        backgroundSize: '28px 28px',
+        color: '#101820',
+        fontFamily: '"IBM Plex Mono", monospace',
+        boxSizing: 'border-box',
+      }}
+    >
+      <div style={{ borderLeft: '3px solid #F07838', paddingLeft: 14, marginBottom: 24 }}>
+        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.16em', color: '#6E7882', textTransform: 'uppercase', marginBottom: 8 }}>DocConnect. / DIRECTORY</div>
+        <div style={s.h1}>Find Doctors</div>
       <div style={s.sub}>Search and connect with healthcare professionals</div>
+      </div>
 
       <form onSubmit={handleSearch}>
         <div style={s.searchBar}>
           <div style={s.searchWrap}>
-            <Search size={16} color="#94a3b8" style={s.searchIcon} />
+            <Search size={16} color="#6E7882" style={s.searchIcon} />
             <input
               style={s.searchInput}
               placeholder="Search by doctor name…"
@@ -286,7 +305,7 @@ export default function FindDoctors() {
         </div>
 
         <div style={s.filtersPanel}>
-          <Filter size={16} color="#64748b" />
+          <Filter size={16} color="#6E7882" />
           <div style={s.filterGroup}>
             <span style={s.filterLabel}>Specialization</span>
             <select
@@ -380,7 +399,7 @@ export default function FindDoctors() {
                 </div>
                 {doc.bio && <div style={s.bio}>{doc.bio}</div>}
                 {doc.available_days && (
-                  <div style={{ fontSize: 12, color: '#64748b' }}>
+                  <div style={{ fontSize: 12, color: '#6E7882' }}>
                     Available: {doc.available_days}
                   </div>
                 )}
@@ -411,7 +430,7 @@ export default function FindDoctors() {
               </h2>
               <button
                 onClick={() => setModal(null)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6E7882' }}
               >
                 <X size={20} />
               </button>
@@ -419,30 +438,30 @@ export default function FindDoctors() {
 
             <form onSubmit={handleRequest}>
               <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6 }}>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#101820', marginBottom: 6 }}>
                   Selected Doctor
                 </label>
-                <div style={{ padding: '10px 12px', borderRadius: 8, background: '#f8fafc', border: '1.5px solid #e2e8f0', fontSize: 14, fontWeight: 600, color: '#0f172a' }}>
+                <div style={{ padding: '10px 12px', borderRadius: 4, background: '#FFFFFF', border: '1.5px solid #DCE2E7', fontSize: 14, fontWeight: 600, color: '#101820' }}>
                   Dr. {modal.doctor.user?.first_name} {modal.doctor.user?.last_name} ({modal.doctor.specialization})
                 </div>
               </div>
 
               <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6 }}>
-                  Date & Time <span style={{ color: '#ef4444' }}>*</span>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#101820', marginBottom: 6 }}>
+                  Date & Time <span style={{ color: '#F07838' }}>*</span>
                 </label>
                 <input
                   type="datetime-local"
                   value={scheduledAt}
                   onChange={(e) => setScheduledAt(e.target.value)}
                   required
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1.5px solid #cbd5e1', fontSize: 14, boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 4, border: '1.5px solid #DCE2E7', fontSize: 14, boxSizing: 'border-box' }}
                 />
               </div>
 
               <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6 }}>
-                  Consultation Mode <span style={{ color: '#ef4444' }}>*</span>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#101820', marginBottom: 6 }}>
+                  Consultation Mode <span style={{ color: '#F07838' }}>*</span>
                 </label>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
                   {[
@@ -459,10 +478,10 @@ export default function FindDoctors() {
                         onClick={() => setMode(m.value)}
                         style={{
                           padding: '10px 8px',
-                          borderRadius: 8,
-                          border: `1.5px solid ${active ? '#0ea5e9' : '#e2e8f0'}`,
-                          background: active ? '#f0f9ff' : '#fff',
-                          color: active ? '#0ea5e9' : '#475569',
+                          borderRadius: 4,
+                          border: `1.5px solid ${active ? '#1769D2' : '#DCE2E7'}`,
+                          background: active ? '#F1F6FC' : '#FFFFFF',
+                          color: active ? '#1769D2' : '#6E7882',
                           fontWeight: active ? 700 : 500,
                           fontSize: 12.5,
                           cursor: 'pointer',
@@ -481,7 +500,7 @@ export default function FindDoctors() {
               </div>
 
               <div style={{ marginBottom: 20 }}>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6 }}>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#101820', marginBottom: 6 }}>
                   Reason for Consultation / Notes
                 </label>
                 <textarea
@@ -489,7 +508,7 @@ export default function FindDoctors() {
                   value={patientNotes}
                   onChange={(e) => setPatientNotes(e.target.value)}
                   placeholder="Briefly describe your symptoms or routine checkup requirement..."
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1.5px solid #cbd5e1', fontSize: 13.5, boxSizing: 'border-box', resize: 'vertical', minHeight: '80px' }}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 4, border: '1.5px solid #DCE2E7', fontSize: 13.5, boxSizing: 'border-box', resize: 'vertical', minHeight: '80px' }}
                 />
               </div>
 
@@ -497,7 +516,7 @@ export default function FindDoctors() {
                 <button
                   type="button"
                   onClick={() => setModal(null)}
-                  style={{ padding: '9px 16px', borderRadius: 8, border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer', fontWeight: 600, color: '#475569' }}
+                  style={{ padding: '9px 16px', borderRadius: 4, border: '1px solid #DCE2E7', background: '#FFFFFF', cursor: 'pointer', fontWeight: 600, color: '#6E7882' }}
                 >
                   Cancel
                 </button>
@@ -505,11 +524,11 @@ export default function FindDoctors() {
                   type="submit"
                   disabled={submitting}
                   style={{
-                    background: '#0ea5e9',
-                    color: '#fff',
+                    background: '#1769D2',
+                    color: '#FFFFFF',
                     border: 'none',
                     padding: '9px 20px',
-                    borderRadius: 8,
+                    borderRadius: 4,
                     fontSize: 14,
                     fontWeight: 700,
                     cursor: submitting ? 'not-allowed' : 'pointer',

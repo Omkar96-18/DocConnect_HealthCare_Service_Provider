@@ -3,15 +3,25 @@ import toast from 'react-hot-toast';
 import { getAppointments, createAppointment, cancelAppointment } from '../../api/appointments';
 import { getAccessList } from '../../api/doctors';
 import LoadingSpinner from '../../components/LoadingSpinner';
-import { Calendar, Plus, X, Video, Phone, User, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
+import {
+  Calendar,
+  Plus,
+  X,
+  Video,
+  Phone,
+  User,
+  Clock,
+  AlertCircle,
+  CheckCircle2,
+} from 'lucide-react';
 
 const STATUS_BADGES = {
-  requested: { bg: '#fffbeb', color: '#b45309', border: '#fde68a', label: 'Requested' },
-  pending_assistant: { bg: '#fef3c7', color: '#92400e', border: '#fde68a', label: 'Pending Assistant Review' },
-  approved: { bg: '#ecfdf5', color: '#047857', border: '#a7f3d0', label: 'Confirmed' },
-  completed: { bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe', label: 'Completed' },
-  cancelled: { bg: '#f1f5f9', color: '#475569', border: '#e2e8f0', label: 'Cancelled' },
-  rejected: { bg: '#fef2f2', color: '#b91c1c', border: '#fecaca', label: 'Rejected' },
+  requested: { label: 'Requested', color: '#B66A12', bg: '#FFF7E8', border: '#F2D3A2' },
+  pending_assistant: { label: 'Pending Assistant Review', color: '#B66A12', bg: '#FFF7E8', border: '#F2D3A2' },
+  approved: { label: 'Confirmed', color: '#1769D2', bg: '#EEF5FF', border: '#B9D3F5' },
+  completed: { label: 'Completed', color: '#1769D2', bg: '#EEF5FF', border: '#B9D3F5' },
+  cancelled: { label: 'Cancelled', color: '#6E7882', bg: '#F4F6F8', border: '#DCE2E7' },
+  rejected: { label: 'Rejected', color: '#B42318', bg: '#FFF1F0', border: '#F4C7C3' },
 };
 
 const MODE_ICONS = {
@@ -20,14 +30,45 @@ const MODE_ICONS = {
   phone: { label: 'Phone Call', icon: Phone },
 };
 
+const COLORS = {
+  ink: '#101820',
+  blue: '#1769D2',
+  orange: '#F07838',
+  muted: '#6E7882',
+  border: '#DCE2E7',
+  paper: '#FFFFFF',
+  soft: '#F6F8FA',
+};
+
+const buttonBase = {
+  borderRadius: 2,
+  fontFamily: '"IBM Plex Mono", monospace',
+  fontSize: 12,
+  fontWeight: 600,
+  letterSpacing: '0.02em',
+  cursor: 'pointer',
+  transition: 'background 150ms ease, border-color 150ms ease, color 150ms ease',
+};
+
+const fieldBase = {
+  boxSizing: 'border-box',
+  width: '100%',
+  padding: '10px 12px',
+  border: `1px solid ${COLORS.border}`,
+  borderRadius: 2,
+  background: COLORS.paper,
+  color: COLORS.ink,
+  fontFamily: '"IBM Plex Mono", monospace',
+  fontSize: 12,
+  outlineColor: COLORS.blue,
+};
+
 export default function PatientAppointments() {
   const [appointments, setAppointments] = useState([]);
   const [approvedDoctors, setApprovedDoctors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showBookModal, setShowBookModal] = useState(false);
   const [cancelling, setCancelling] = useState(null);
-
-  // New Appointment Form
   const [selectedDoctorId, setSelectedDoctorId] = useState('');
   const [scheduledAt, setScheduledAt] = useState('');
   const [mode, setMode] = useState('in_person');
@@ -37,10 +78,7 @@ export default function PatientAppointments() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [appRes, accRes] = await Promise.all([
-        getAppointments(),
-        getAccessList(),
-      ]);
+      const [appRes, accRes] = await Promise.all([getAppointments(), getAccessList()]);
       setAppointments(Array.isArray(appRes.data) ? appRes.data : appRes.data.results ?? []);
       const accesses = Array.isArray(accRes.data) ? accRes.data : accRes.data.results ?? [];
       const approved = accesses.filter((a) => a.status === 'approved');
@@ -81,6 +119,8 @@ export default function PatientAppointments() {
       toast.success('Appointment booked successfully!');
       setShowBookModal(false);
       setPatientNotes('');
+      setScheduledAt('');
+      setMode('in_person');
       loadData();
     } catch (err) {
       toast.error(err.response?.data?.error || err.response?.data?.detail || 'Failed to book appointment');
@@ -103,240 +143,282 @@ export default function PatientAppointments() {
     }
   };
 
+  const styles = {
+    page: {
+      maxWidth: 1100,
+      margin: '0 auto',
+      color: COLORS.ink,
+      fontFamily: '"IBM Plex Mono", monospace',
+    },
+    eyebrow: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 9,
+      color: COLORS.muted,
+      fontSize: 10,
+      fontWeight: 600,
+      letterSpacing: '0.13em',
+      textTransform: 'uppercase',
+      marginBottom: 10,
+    },
+    title: {
+      fontSize: 24,
+      fontWeight: 700,
+      lineHeight: 1.25,
+      letterSpacing: '-0.04em',
+      margin: 0,
+      color: COLORS.ink,
+    },
+    subtitle: {
+      margin: '7px 0 0',
+      color: COLORS.muted,
+      fontSize: 12,
+      lineHeight: 1.7,
+    },
+    primaryButton: {
+      ...buttonBase,
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      padding: '11px 15px',
+      border: `1px solid ${COLORS.blue}`,
+      background: COLORS.blue,
+      color: '#FFFFFF',
+    },
+    secondaryButton: {
+      ...buttonBase,
+      padding: '10px 14px',
+      border: `1px solid ${COLORS.border}`,
+      background: COLORS.paper,
+      color: COLORS.ink,
+    },
+    card: {
+      background: COLORS.paper,
+      border: `1px solid ${COLORS.border}`,
+      borderRadius: 2,
+      padding: '19px 20px',
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      flexWrap: 'wrap',
+      gap: 18,
+    },
+    fieldLabel: {
+      display: 'block',
+      fontSize: 10,
+      fontWeight: 600,
+      color: COLORS.muted,
+      letterSpacing: '0.07em',
+      textTransform: 'uppercase',
+      marginBottom: 7,
+    },
+    iconBox: {
+      width: 42,
+      height: 42,
+      border: `1px solid ${COLORS.border}`,
+      background: COLORS.soft,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      color: COLORS.blue,
+      flexShrink: 0,
+    },
+  };
+
   if (loading) return <LoadingSpinner fullscreen={false} />;
 
   return (
-    <div style={{ maxWidth: 1100, margin: '0 auto', fontFamily: 'var(--font-sans)' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
+    <main style={styles.page}>
+      <header
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-end',
+          flexWrap: 'wrap',
+          gap: 16,
+          marginBottom: 25,
+          paddingBottom: 19,
+          borderBottom: `1px solid ${COLORS.border}`,
+        }}
+      >
         <div>
-          <h1 style={{ fontSize: 24, fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em' }}>
-            My Appointments
-          </h1>
-          <p style={{ color: '#64748b', fontSize: 13.5, marginTop: 4 }}>
-            Schedule and track your medical consultations and clinic visits.
-          </p>
-        </div>
-
-        <button
-          onClick={() => setShowBookModal(true)}
-          style={{
-            background: '#0284c7',
-            color: '#fff',
-            border: 'none',
-            padding: '10px 18px',
-            borderRadius: 10,
-            fontSize: 13.5,
-            fontWeight: 700,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            boxShadow: '0 4px 12px rgba(2, 132, 199, 0.25)',
-          }}
-        >
-          <Plus size={17} /> Book Appointment
-        </button>
-      </div>
-
-      {/* Appointments List */}
-      {appointments.length === 0 ? (
-        <div
-          style={{
-            background: '#fff',
-            borderRadius: 16,
-            border: '1px solid #e2e8f0',
-            padding: '60px 24px',
-            textAlign: 'center',
-            color: '#64748b',
-          }}
-        >
-          <div
-            style={{
-              width: 54,
-              height: 54,
-              borderRadius: 14,
-              background: '#f1f5f9',
-              color: '#94a3b8',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginBottom: 16,
-            }}
-          >
-            <Calendar size={26} />
+          <div style={styles.eyebrow}>
+            <span style={{ width: 20, height: 2, background: COLORS.orange }} />
+            PATIENT PORTAL / CARE
           </div>
-          <h3 style={{ fontSize: 16, fontWeight: 700, color: '#0f172a', margin: '0 0 6px' }}>
-            No appointments booked yet
-          </h3>
-          <p style={{ fontSize: 13.5, color: '#64748b', maxWidth: 400, margin: '0 auto 20px' }}>
+          <h1 style={styles.title}>My Appointments<span style={{ color: COLORS.orange }}>.</span></h1>
+          <p style={styles.subtitle}>Schedule and track your medical consultations and clinic visits.</p>
+        </div>
+        <button style={styles.primaryButton} onClick={() => setShowBookModal(true)}>
+          <Plus size={15} /> Book Appointment
+        </button>
+      </header>
+
+      {appointments.length === 0 ? (
+        <section
+          style={{
+            border: `1px solid ${COLORS.border}`,
+            background: COLORS.paper,
+            padding: '52px 24px',
+            textAlign: 'center',
+          }}
+        >
+          <div style={{ ...styles.iconBox, margin: '0 auto 17px', width: 48, height: 48 }}>
+            <Calendar size={22} />
+          </div>
+          <div style={styles.eyebrow}>NO RECORDS FOUND</div>
+          <h2 style={{ fontSize: 16, margin: '0 0 8px', color: COLORS.ink }}>No appointments booked yet</h2>
+          <p style={{ ...styles.subtitle, maxWidth: 430, margin: '0 auto 20px' }}>
             Once you have access to a doctor, you can book an appointment in-person, over video, or via phone call.
           </p>
-          <button
-            onClick={() => setShowBookModal(true)}
-            style={{
-              background: '#0284c7',
-              color: '#fff',
-              border: 'none',
-              padding: '9px 16px',
-              borderRadius: 8,
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
-          >
-            Schedule Consultation
+          <button style={styles.primaryButton} onClick={() => setShowBookModal(true)}>
+            <Plus size={15} /> Schedule Consultation
           </button>
-        </div>
+        </section>
       ) : (
-        <div style={{ display: 'grid', gap: 14 }}>
-          {appointments.map((a) => {
-            const docName = a.doctor_info?.name || `Dr. #${a.doctor}`;
-            const specialization = a.doctor_info?.specialization ? `${a.doctor_info.specialization.toUpperCase()} SPECIALIST` : 'GENERAL PHYSICIAN';
-            const badge = STATUS_BADGES[a.status] || { bg: '#f1f5f9', color: '#475569', border: '#e2e8f0', label: a.status };
-            const modeObj = MODE_ICONS[a.mode] || { label: a.mode, icon: User };
-            const ModeIcon = modeObj.icon;
-            const scheduledDate = new Date(a.scheduled_at);
+        <section style={{ display: 'grid', gap: 12 }}>
+          {appointments.map((appointment) => {
+            const doctorName = appointment.doctor_info?.name || `Dr. #${appointment.doctor}`;
+            const specialization = appointment.doctor_info?.specialization
+              ? `${appointment.doctor_info.specialization.toUpperCase()} SPECIALIST`
+              : 'GENERAL PHYSICIAN';
+            const badge = STATUS_BADGES[appointment.status] || {
+              label: appointment.status,
+              color: COLORS.muted,
+              bg: COLORS.soft,
+              border: COLORS.border,
+            };
+            const modeInfo = MODE_ICONS[appointment.mode] || { label: appointment.mode, icon: User };
+            const ModeIcon = modeInfo.icon;
+            const date = new Date(appointment.scheduled_at);
 
             return (
-              <div
-                key={a.id}
-                style={{
-                  background: '#fff',
-                  borderRadius: 14,
-                  border: '1px solid #e2e8f0',
-                  padding: '18px 20px',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  flexWrap: 'wrap',
-                  gap: 16,
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
-                }}
-              >
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>
-                      {docName}
-                    </span>
+              <article key={appointment.id} style={styles.card}>
+                <div style={{ minWidth: 0, flex: '1 1 350px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+                    <h2 style={{ fontSize: 14, lineHeight: 1.5, margin: 0, fontWeight: 700 }}>
+                      {doctorName}
+                    </h2>
                     <span
                       style={{
-                        padding: '3px 9px',
-                        borderRadius: 999,
-                        fontSize: 11.5,
-                        fontWeight: 700,
-                        background: badge.bg,
+                        padding: '4px 7px',
                         color: badge.color,
+                        background: badge.bg,
                         border: `1px solid ${badge.border}`,
+                        fontSize: 9,
+                        fontWeight: 600,
+                        letterSpacing: '0.04em',
+                        textTransform: 'uppercase',
                       }}
                     >
                       {badge.label}
                     </span>
                   </div>
-
-                  <div style={{ fontSize: 12, fontWeight: 600, color: '#0284c7', marginTop: 2 }}>
+                  <div style={{ color: COLORS.blue, fontSize: 10, fontWeight: 600, letterSpacing: '0.07em', marginTop: 5 }}>
                     {specialization}
                   </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginTop: 10, fontSize: 13, color: '#475569', flexWrap: 'wrap' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <Calendar size={15} color="#64748b" />
-                      <span>{scheduledDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <Clock size={15} color="#64748b" />
-                      <span>{scheduledDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f8fafc', padding: '3px 8px', borderRadius: 6 }}>
-                      <ModeIcon size={14} color="#0284c7" />
-                      <span style={{ fontWeight: 600 }}>{modeObj.label}</span>
-                    </div>
+                  <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px 18px', marginTop: 14, fontSize: 11, color: COLORS.muted }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <Calendar size={14} /> {date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                    </span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <Clock size={14} /> {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, border: `1px solid ${COLORS.border}`, padding: '5px 7px', background: COLORS.soft }}>
+                      <ModeIcon size={13} color={COLORS.blue} /> {modeInfo.label}
+                    </span>
                   </div>
-
-                  {a.patient_notes && (
-                    <div style={{ marginTop: 8, fontSize: 12.5, color: '#64748b', fontStyle: 'italic' }}>
-                      Note: "{a.patient_notes}"
-                    </div>
+                  {appointment.patient_notes && (
+                    <p style={{ fontSize: 11, color: COLORS.muted, lineHeight: 1.7, margin: '12px 0 0', overflowWrap: 'anywhere' }}>
+                      <span style={{ color: COLORS.ink, fontWeight: 600 }}>NOTE / </span>
+                      {appointment.patient_notes}
+                    </p>
                   )}
                 </div>
-
-                {/* Actions */}
-                <div>
-                  {['requested', 'pending_assistant', 'approved'].includes(a.status) && (
-                    <button
-                      onClick={() => handleCancel(a.id)}
-                      disabled={cancelling === a.id}
-                      style={{
-                        background: '#fff',
-                        border: '1px solid #fecaca',
-                        color: '#dc2626',
-                        borderRadius: 8,
-                        padding: '7px 14px',
-                        fontSize: 12.5,
-                        fontWeight: 600,
-                        cursor: cancelling === a.id ? 'not-allowed' : 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 6,
-                      }}
-                    >
-                      <X size={15} />
-                      {cancelling === a.id ? 'Cancelling...' : 'Cancel Appointment'}
-                    </button>
-                  )}
-                </div>
-              </div>
+                {['requested', 'pending_assistant', 'approved'].includes(appointment.status) && (
+                  <button
+                    onClick={() => handleCancel(appointment.id)}
+                    disabled={cancelling === appointment.id}
+                    style={{
+                      ...buttonBase,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 7,
+                      padding: '9px 11px',
+                      border: '1px solid #F4C7C3',
+                      background: '#FFFFFF',
+                      color: '#B42318',
+                      cursor: cancelling === appointment.id ? 'not-allowed' : 'pointer',
+                      opacity: cancelling === appointment.id ? 0.65 : 1,
+                    }}
+                  >
+                    <X size={14} />
+                    {cancelling === appointment.id ? 'Cancelling...' : 'Cancel Appointment'}
+                  </button>
+                )}
+              </article>
             );
           })}
-        </div>
+        </section>
       )}
 
-      {/* Book Appointment Modal */}
       {showBookModal && (
         <div
+          role="presentation"
+          onClick={() => setShowBookModal(false)}
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(15, 23, 42, 0.45)',
-            backdropFilter: 'blur(3px)',
+            zIndex: 1000,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            zIndex: 1000,
-            padding: 20,
+            padding: 16,
+            background: 'rgba(16, 24, 32, 0.48)',
+            backdropFilter: 'blur(3px)',
           }}
         >
-          <div
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="appointment-modal-title"
+            onClick={(event) => event.stopPropagation()}
             style={{
-              background: '#fff',
-              borderRadius: 18,
-              padding: '28px 24px',
-              maxWidth: 520,
               width: '100%',
-              boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
+              maxWidth: 520,
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              background: COLORS.paper,
+              borderTop: `3px solid ${COLORS.orange}`,
+              padding: '24px',
+              boxSizing: 'border-box',
+              boxShadow: '0 22px 60px rgba(16, 24, 32, 0.2)',
+              fontFamily: '"IBM Plex Mono", monospace',
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <h2 style={{ fontSize: 18, fontWeight: 800, margin: 0, color: '#0f172a' }}>
-                Book New Appointment
-              </h2>
-              <button
-                onClick={() => setShowBookModal(false)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}
-              >
-                <X size={20} />
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, paddingBottom: 17, borderBottom: `1px solid ${COLORS.border}`, marginBottom: 20 }}>
+              <div>
+                <div style={styles.eyebrow}>NEW REQUEST / APPOINTMENT</div>
+                <h2 id="appointment-modal-title" style={{ margin: 0, fontSize: 18, color: COLORS.ink }}>
+                  Book New Appointment<span style={{ color: COLORS.orange }}>.</span>
+                </h2>
+              </div>
+              <button aria-label="Close appointment dialog" onClick={() => setShowBookModal(false)} style={{ ...styles.secondaryButton, padding: 7, display: 'inline-flex' }}>
+                <X size={17} />
               </button>
             </div>
 
             {approvedDoctors.length === 0 ? (
-              <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, padding: 16, marginBottom: 16 }}>
+              <div style={{ border: '1px solid #F2D3A2', background: '#FFF7E8', padding: 15, marginBottom: 16 }}>
                 <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                  <AlertCircle size={20} color="#b45309" style={{ flexShrink: 0, marginTop: 2 }} />
-                  <div style={{ fontSize: 13, color: '#92400e' }}>
-                    <strong>Access Required:</strong> You must request and receive consultation approval from a doctor or their assistant before booking.
-                    <div style={{ marginTop: 8 }}>
-                      <a href="/patient/find-doctors" style={{ color: '#0284c7', fontWeight: 700 }}>
-                        Browse Doctors & Request Access →
+                  <AlertCircle size={19} color="#B66A12" style={{ flexShrink: 0, marginTop: 2 }} />
+                  <div style={{ fontSize: 11, lineHeight: 1.8, color: '#805015' }}>
+                    <strong>ACCESS REQUIRED / </strong>
+                    You must request and receive consultation approval from a doctor or their assistant before booking.
+                    <div style={{ marginTop: 9 }}>
+                      <a href="/patient/find-doctors" style={{ color: COLORS.blue, fontWeight: 700 }}>
+                        Browse Doctors &amp; Request Access →
                       </a>
                     </div>
                   </div>
@@ -344,120 +426,97 @@ export default function PatientAppointments() {
               </div>
             ) : (
               <form onSubmit={handleBook}>
-                <div style={{ marginBottom: 16 }}>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6 }}>
-                    Select Doctor <span style={{ color: '#ef4444' }}>*</span>
-                  </label>
+                <div style={{ marginBottom: 17 }}>
+                  <label htmlFor="appointment-doctor" style={styles.fieldLabel}>Select Doctor *</label>
                   <select
+                    id="appointment-doctor"
                     value={selectedDoctorId}
-                    onChange={(e) => setSelectedDoctorId(e.target.value)}
+                    onChange={(event) => setSelectedDoctorId(event.target.value)}
                     required
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1.5px solid #cbd5e1', fontSize: 14 }}
+                    style={fieldBase}
                   >
-                    {approvedDoctors.map((acc) => (
-                      <option key={acc.id} value={acc.doctor}>
-                        {acc.doctor_info?.name || `Doctor #${acc.doctor}`} ({acc.doctor_info?.specialization || 'General'})
+                    {approvedDoctors.map((access) => (
+                      <option key={access.id} value={access.doctor}>
+                        {access.doctor_info?.name || `Doctor #${access.doctor}`} ({access.doctor_info?.specialization || 'General'})
                       </option>
                     ))}
                   </select>
                 </div>
 
-                <div style={{ marginBottom: 16 }}>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6 }}>
-                    Date & Time <span style={{ color: '#ef4444' }}>*</span>
-                  </label>
+                <div style={{ marginBottom: 17 }}>
+                  <label htmlFor="appointment-datetime" style={styles.fieldLabel}>Date &amp; Time *</label>
                   <input
+                    id="appointment-datetime"
                     type="datetime-local"
                     value={scheduledAt}
-                    onChange={(e) => setScheduledAt(e.target.value)}
+                    onChange={(event) => setScheduledAt(event.target.value)}
                     required
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1.5px solid #cbd5e1', fontSize: 14 }}
+                    style={fieldBase}
                   />
                 </div>
 
-                <div style={{ marginBottom: 16 }}>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6 }}>
-                    Consultation Mode <span style={{ color: '#ef4444' }}>*</span>
-                  </label>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                <fieldset style={{ border: 0, padding: 0, margin: '0 0 17px' }}>
+                  <legend style={styles.fieldLabel}>Consultation Mode *</legend>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
                     {[
                       { value: 'in_person', label: 'In Person', icon: User },
                       { value: 'video', label: 'Video Call', icon: Video },
                       { value: 'phone', label: 'Phone', icon: Phone },
-                    ].map((m) => {
-                      const Icon = m.icon;
-                      const active = mode === m.value;
+                    ].map((item) => {
+                      const Icon = item.icon;
+                      const active = mode === item.value;
                       return (
                         <button
-                          key={m.value}
+                          key={item.value}
                           type="button"
-                          onClick={() => setMode(m.value)}
+                          aria-pressed={active}
+                          onClick={() => setMode(item.value)}
                           style={{
-                            padding: '10px 8px',
-                            borderRadius: 8,
-                            border: `1.5px solid ${active ? '#0284c7' : '#e2e8f0'}`,
-                            background: active ? '#f0f9ff' : '#fff',
-                            color: active ? '#0284c7' : '#475569',
-                            fontWeight: active ? 700 : 500,
-                            fontSize: 12.5,
-                            cursor: 'pointer',
+                            ...buttonBase,
+                            minWidth: 0,
+                            padding: '12px 5px',
                             display: 'flex',
                             flexDirection: 'column',
                             alignItems: 'center',
-                            gap: 4,
+                            gap: 7,
+                            border: `1px solid ${active ? COLORS.blue : COLORS.border}`,
+                            background: active ? '#EEF5FF' : COLORS.paper,
+                            color: active ? COLORS.blue : COLORS.muted,
                           }}
                         >
-                          <Icon size={16} />
-                          {m.label}
+                          <Icon size={17} />
+                          <span style={{ fontSize: 10, textAlign: 'center' }}>{item.label}</span>
                         </button>
                       );
                     })}
                   </div>
-                </div>
+                </fieldset>
 
                 <div style={{ marginBottom: 20 }}>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6 }}>
-                    Reason for Consultation / Notes
-                  </label>
+                  <label htmlFor="appointment-notes" style={styles.fieldLabel}>Reason for Consultation / Notes</label>
                   <textarea
-                    rows={2}
+                    id="appointment-notes"
+                    rows={3}
                     value={patientNotes}
-                    onChange={(e) => setPatientNotes(e.target.value)}
+                    onChange={(event) => setPatientNotes(event.target.value)}
                     placeholder="Briefly describe your symptoms or routine checkup requirement..."
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1.5px solid #cbd5e1', fontSize: 13.5 }}
+                    style={{ ...fieldBase, resize: 'vertical', minHeight: 86, lineHeight: 1.7 }}
                   />
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-                  <button
-                    type="button"
-                    onClick={() => setShowBookModal(false)}
-                    style={{ padding: '9px 16px', borderRadius: 8, border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer' }}
-                  >
+                <div style={{ display: 'flex', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 9, borderTop: `1px solid ${COLORS.border}`, paddingTop: 17 }}>
+                  <button type="button" onClick={() => setShowBookModal(false)} style={styles.secondaryButton}>
                     Cancel
                   </button>
-                  <button
-                    type="submit"
-                    disabled={booking}
-                    style={{
-                      background: '#0284c7',
-                      color: '#fff',
-                      border: 'none',
-                      padding: '9px 20px',
-                      borderRadius: 8,
-                      fontSize: 14,
-                      fontWeight: 700,
-                      cursor: booking ? 'not-allowed' : 'pointer',
-                    }}
-                  >
+                  <button type="submit" disabled={booking} style={{ ...styles.primaryButton, opacity: booking ? 0.65 : 1, cursor: booking ? 'not-allowed' : 'pointer' }}>
                     {booking ? 'Scheduling...' : 'Confirm Booking'}
                   </button>
                 </div>
               </form>
             )}
-          </div>
+          </section>
         </div>
       )}
-    </div>
+    </main>
   );
 }

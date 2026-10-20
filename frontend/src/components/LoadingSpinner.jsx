@@ -1,26 +1,57 @@
 import React from 'react';
 
 export default function LoadingSpinner({ fullscreen = true, size = 48 }) {
-  const style = {
+  const containerStyle = {
     display: 'flex',
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    ...(fullscreen ? { height: '100vh', width: '100%' } : { padding: '2rem' }),
+    gap: '1rem',
+    ...(fullscreen
+      ? { minHeight: '100vh', width: '100%', background: '#FFFFFF' }
+      : { padding: '2rem', width: '100%' }),
+    color: '#101820',
+    fontFamily: '"IBM Plex Mono", monospace',
   };
 
   const spinnerStyle = {
     width: size,
     height: size,
-    border: '4px solid #e0f2fe',
-    borderTop: '4px solid #0ea5e9',
+    boxSizing: 'border-box',
+    border: '3px solid #DCE2E7',
+    borderTopColor: '#1769D2',
+    borderRightColor: '#F07838',
     borderRadius: '50%',
-    animation: 'spin 0.8s linear infinite',
+    animation: 'docconnect-spin 0.85s linear infinite',
   };
 
   return (
-    <div style={style}>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      <div style={spinnerStyle} />
+    <div style={containerStyle} role="status" aria-live="polite" aria-label="Loading">
+      <style>{`
+        @keyframes docconnect-spin {
+          to { transform: rotate(360deg); }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .docconnect-loading-spinner {
+            animation-duration: 2.5s !important;
+          }
+        }
+      `}</style>
+
+      <div className="docconnect-loading-spinner" style={spinnerStyle} aria-hidden="true" />
+
+      <span
+        style={{
+          fontSize: '11px',
+          fontWeight: 600,
+          letterSpacing: '0.14em',
+          textTransform: 'uppercase',
+          color: '#6E7882',
+        }}
+      >
+        Loading
+      </span>
     </div>
   );
 }

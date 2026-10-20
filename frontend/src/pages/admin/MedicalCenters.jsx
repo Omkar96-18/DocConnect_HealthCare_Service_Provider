@@ -5,16 +5,86 @@ import {
   updateMedicalCenter,
   deleteMedicalCenter,
 } from '../../api/admin';
-import { Building2, Plus, Edit2, Trash2, MapPin, Phone, Mail, X } from 'lucide-react';
+import {
+  Building2,
+  Plus,
+  Pencil,
+  Trash2,
+  MapPin,
+  Phone,
+  Mail,
+  X,
+  LocateFixed,
+  Search,
+  ArrowUpRight,
+  LoaderCircle,
+} from 'lucide-react';
 import { toast } from 'react-hot-toast';
+
+const C = {
+  paper: '#FFFFFF',
+  ink: '#101820',
+  blue: '#1769D2',
+  orange: '#F07838',
+  muted: '#6E7882',
+  border: '#DCE2E7',
+  soft: '#F5F8FA',
+  blueSoft: '#EEF5FF',
+  orangeSoft: '#FFF3EB',
+  danger: '#C83D42',
+  dangerSoft: '#FFF1F1',
+};
+
+const mono = '"IBM Plex Mono", "SFMono-Regular", Consolas, monospace';
+const body = '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+
+const inputStyle = {
+  width: '100%',
+  boxSizing: 'border-box',
+  border: `1px solid ${C.border}`,
+  borderRadius: 5,
+  background: C.paper,
+  color: C.ink,
+  padding: '12px 13px',
+  fontSize: 14,
+  fontFamily: body,
+  outline: 'none',
+};
+
+const labelStyle = {
+  display: 'block',
+  marginBottom: 7,
+  fontFamily: mono,
+  fontSize: 10,
+  letterSpacing: '0.09em',
+  textTransform: 'uppercase',
+  fontWeight: 600,
+  color: C.muted,
+};
+
+const buttonBase = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 8,
+  borderRadius: 5,
+  padding: '11px 15px',
+  fontFamily: mono,
+  fontSize: 11,
+  fontWeight: 600,
+  letterSpacing: '0.035em',
+  cursor: 'pointer',
+  transition: 'background .18s ease, border-color .18s ease',
+};
 
 export default function MedicalCenters() {
   const [centers, setCenters] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingCenter, setEditingCenter] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState('');
 
-  // Form states
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
   const [latitude, setLatitude] = useState('');
@@ -38,7 +108,7 @@ export default function MedicalCenters() {
     }
   };
 
-  const handleOpenCreate = () => {
+  const resetForm = () => {
     setEditingCenter(null);
     setName('');
     setAddress('');
@@ -46,13 +116,17 @@ export default function MedicalCenters() {
     setLongitude('');
     setPhone('');
     setEmail('');
+  };
+
+  const handleOpenCreate = () => {
+    resetForm();
     setShowModal(true);
   };
 
   const handleOpenEdit = (c) => {
     setEditingCenter(c);
-    setName(c.name);
-    setAddress(c.address);
+    setName(c.name || '');
+    setAddress(c.address || '');
     setLatitude(c.latitude ?? '');
     setLongitude(c.longitude ?? '');
     setPhone(c.phone || '');
@@ -63,15 +137,16 @@ export default function MedicalCenters() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const payload = {
-      name,
-      address,
-      latitude: latitude ? parseFloat(latitude) : null,
-      longitude: longitude ? parseFloat(longitude) : null,
-      phone,
-      email,
+      name: name.trim(),
+      address: address.trim(),
+      latitude: latitude !== '' ? parseFloat(latitude) : null,
+      longitude: longitude !== '' ? parseFloat(longitude) : null,
+      phone: phone.trim(),
+      email: email.trim(),
     };
 
     try {
+      setSaving(true);
       if (editingCenter) {
         await updateMedicalCenter(editingCenter.id, payload);
         toast.success('Medical Center updated successfully');
@@ -80,9 +155,12 @@ export default function MedicalCenters() {
         toast.success('Medical Center registered successfully');
       }
       setShowModal(false);
-      fetchCenters();
+      resetForm();
+      await fetchCenters();
     } catch (err) {
       toast.error('Failed to save medical center');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -91,242 +169,235 @@ export default function MedicalCenters() {
     try {
       await deleteMedicalCenter(id);
       toast.success('Medical Center deleted');
-      fetchCenters();
+      await fetchCenters();
     } catch (err) {
       toast.error('Failed to delete medical center');
     }
   };
 
+  const filteredCenters = centers.filter((c) => {
+    const q = search.toLowerCase().trim();
+    return !q || [c.name, c.address, c.phone, c.email, String(c.id)]
+      .some((value) => String(value || '').toLowerCase().includes(q));
+  });
+
+  const closeModal = () => {
+    if (saving) return;
+    setShowModal(false);
+    resetForm();
+  };
+
   return (
-    <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+    <div style={{ maxWidth: 1240, margin: '0 auto', padding: '8px 0 36px', color: C.ink, fontFamily: body }}>
+      <div style={{ height: 3, width: 54, background: C.orange, marginBottom: 24 }} />
+
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 20, flexWrap: 'wrap', marginBottom: 28 }}>
         <div>
-          <h1 style={{ fontSize: 24, fontWeight: 700, color: '#0f172a', margin: 0 }}>Medical Centers Directory</h1>
-          <p style={{ color: '#64748b', marginTop: 4 }}>
-            Manage hospital branches, partner clinics, and geographical coordinates.
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 10 }}>
+            <span style={{ width: 7, height: 7, background: C.blue, display: 'inline-block' }} />
+            <span style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.13em', textTransform: 'uppercase', color: C.muted }}>
+              Admin / Directory
+            </span>
+          </div>
+          <h1 style={{ fontSize: 'clamp(27px, 3vw, 36px)', lineHeight: 1.1, letterSpacing: '-0.045em', fontWeight: 700, margin: 0 }}>
+            Medical Centers<span style={{ color: C.orange }}>.</span>
+          </h1>
+          <p style={{ margin: '11px 0 0', maxWidth: 590, color: C.muted, fontSize: 14, lineHeight: 1.65 }}>
+            Manage hospitals, partner clinics, contact details, and location coordinates from one directory.
           </p>
         </div>
-
-        <button
-          onClick={handleOpenCreate}
-          style={{
-            background: '#0ea5e9',
-            color: '#fff',
-            border: 'none',
-            padding: '10px 18px',
-            borderRadius: 8,
-            fontSize: 14,
-            fontWeight: 600,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-          }}
-        >
-          <Plus size={18} /> Add Medical Center
+        <button onClick={handleOpenCreate} style={{ ...buttonBase, background: C.blue, border: `1px solid ${C.blue}`, color: '#fff', minHeight: 43 }}>
+          <Plus size={16} /> Add medical center
         </button>
+      </header>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(155px, 1fr))', gap: 12, marginBottom: 24 }}>
+        <div style={{ border: `1px solid ${C.border}`, padding: '17px 18px', background: C.paper, position: 'relative' }}>
+          <div style={{ position: 'absolute', top: 0, left: 0, height: 3, width: 34, background: C.blue }} />
+          <div style={{ fontFamily: mono, fontSize: 10, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.09em' }}>Total centers</div>
+          <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.04em', marginTop: 7 }}>{loading ? '—' : centers.length}</div>
+        </div>
+        <div style={{ border: `1px solid ${C.border}`, padding: '17px 18px', background: C.paper, position: 'relative' }}>
+          <div style={{ position: 'absolute', top: 0, left: 0, height: 3, width: 34, background: C.orange }} />
+          <div style={{ fontFamily: mono, fontSize: 10, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.09em' }}>With coordinates</div>
+          <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.04em', marginTop: 7 }}>
+            {loading ? '—' : centers.filter((c) => c.latitude != null && c.latitude !== '' && c.longitude != null && c.longitude !== '').length}
+          </div>
+        </div>
+        <div style={{ border: `1px solid ${C.border}`, padding: '17px 18px', background: C.paper, position: 'relative' }}>
+          <div style={{ position: 'absolute', top: 0, left: 0, height: 3, width: 34, background: '#8B98A5' }} />
+          <div style={{ fontFamily: mono, fontSize: 10, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.09em' }}>Contact records</div>
+          <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.04em', marginTop: 7 }}>
+            {loading ? '—' : centers.filter((c) => c.phone || c.email).length}
+          </div>
+        </div>
       </div>
 
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: 60, color: '#64748b' }}>Loading medical centers...</div>
-      ) : centers.length === 0 ? (
-        <div style={{ background: '#fff', padding: 60, borderRadius: 12, border: '1px solid #e2e8f0', textAlign: 'center', color: '#94a3b8' }}>
-          No medical centers registered yet. Click "Add Medical Center" above to add one.
+      <section style={{ border: `1px solid ${C.border}`, background: C.paper }}>
+        <div style={{ padding: '15px 18px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+            <Building2 size={17} color={C.blue} />
+            <span style={{ fontSize: 13, fontWeight: 700 }}>Registered locations</span>
+            <span style={{ fontFamily: mono, fontSize: 10, color: C.muted, border: `1px solid ${C.border}`, padding: '3px 7px' }}>{filteredCenters.length} records</span>
+          </div>
+          <div style={{ position: 'relative', width: 'min(100%, 300px)' }}>
+            <Search size={15} color={C.muted} style={{ position: 'absolute', left: 11, top: 12 }} />
+            <input
+              aria-label="Search medical centers"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search name, address, contact…"
+              style={{ ...inputStyle, padding: '10px 12px 10px 34px', fontSize: 12 }}
+            />
+          </div>
         </div>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: 16 }}>
-          {centers.map((c) => (
-            <div
-              key={c.id}
-              style={{
-                background: '#fff',
-                borderRadius: 12,
-                border: '1px solid #e2e8f0',
-                padding: 20,
-                boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-              }}
-            >
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{ background: '#e0f2fe', padding: 10, borderRadius: 8, color: '#0284c7' }}>
-                      <Building2 size={24} />
-                    </div>
-                    <div>
-                      <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#0f172a' }}>{c.name}</h3>
-                      <span style={{ fontSize: 12, color: '#64748b' }}>ID #{c.id}</span>
-                    </div>
-                  </div>
 
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <button
-                      onClick={() => handleOpenEdit(c)}
-                      style={{ background: 'none', border: '1px solid #e2e8f0', borderRadius: 6, padding: '6px', cursor: 'pointer', color: '#475569' }}
-                    >
-                      <Edit2 size={15} />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(c.id)}
-                      style={{ background: 'none', border: '1px solid #fee2e2', borderRadius: 6, padding: '6px', cursor: 'pointer', color: '#ef4444' }}
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  </div>
-                </div>
-
-                <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 8, fontSize: 13, color: '#475569' }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                    <MapPin size={16} color="#64748b" style={{ flexShrink: 0, marginTop: 2 }} />
-                    <span>{c.address}</span>
-                  </div>
-                  {c.phone && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <Phone size={16} color="#64748b" />
-                      <span>{c.phone}</span>
-                    </div>
-                  )}
-                  {c.email && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <Mail size={16} color="#64748b" />
-                      <span>{c.email}</span>
-                    </div>
-                  )}
-                  {c.latitude && c.longitude && (
-                    <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>
-                      Coordinates: {c.latitude.toFixed(4)}, {c.longitude.toFixed(4)}
-                    </div>
-                  )}
-                </div>
-              </div>
+        {loading ? (
+          <div style={{ padding: '62px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, color: C.muted }}>
+            <LoaderCircle size={25} color={C.blue} style={{ animation: 'dc-spin 1s linear infinite' }} />
+            <span style={{ fontFamily: mono, fontSize: 11 }}>LOADING DIRECTORY…</span>
+          </div>
+        ) : filteredCenters.length === 0 ? (
+          <div style={{ padding: '56px 20px', textAlign: 'center' }}>
+            <div style={{ margin: '0 auto 15px', width: 48, height: 48, display: 'grid', placeItems: 'center', background: C.blueSoft, color: C.blue }}>
+              <Building2 size={22} />
             </div>
-          ))}
-        </div>
-      )}
+            <h3 style={{ margin: '0 0 7px', fontSize: 16, letterSpacing: '-0.02em' }}>
+              {search ? 'No matching centers' : 'No centers registered yet'}
+            </h3>
+            <p style={{ margin: '0 auto 18px', color: C.muted, fontSize: 13, maxWidth: 390, lineHeight: 1.6 }}>
+              {search ? 'Try another name, address, ID, phone number, or email.' : 'Add your first medical center to start building the directory.'}
+            </p>
+            {!search && <button onClick={handleOpenCreate} style={{ ...buttonBase, background: C.blue, color: '#fff', border: `1px solid ${C.blue}` }}><Plus size={15} /> Add medical center</button>}
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))', gap: 0 }}>
+            {filteredCenters.map((c, index) => (
+              <article key={c.id} style={{ padding: 21, borderBottom: `1px solid ${C.border}`, borderRight: `1px solid ${C.border}`, minWidth: 0, background: C.paper }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, minWidth: 0 }}>
+                    <div style={{ width: 42, height: 42, flexShrink: 0, display: 'grid', placeItems: 'center', background: index % 2 === 0 ? C.blueSoft : C.orangeSoft, color: index % 2 === 0 ? C.blue : C.orange }}>
+                      <Building2 size={20} />
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <h3 style={{ margin: '1px 0 7px', fontSize: 15, lineHeight: 1.4, letterSpacing: '-0.025em', overflowWrap: 'anywhere' }}>{c.name}</h3>
+                      <span style={{ fontFamily: mono, color: C.muted, fontSize: 10 }}>CENTER ID / {c.id}</span>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
+                    <button aria-label={`Edit ${c.name}`} title="Edit center" onClick={() => handleOpenEdit(c)} style={{ width: 32, height: 32, display: 'grid', placeItems: 'center', border: `1px solid ${C.border}`, background: '#fff', color: C.blue, cursor: 'pointer' }}>
+                      <Pencil size={14} />
+                    </button>
+                    <button aria-label={`Delete ${c.name}`} title="Delete center" onClick={() => handleDelete(c.id)} style={{ width: 32, height: 32, display: 'grid', placeItems: 'center', border: `1px solid #F0D8D8`, background: '#fff', color: C.danger, cursor: 'pointer' }}>
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
 
-      {/* Add / Edit Modal */}
+                <div style={{ height: 1, background: C.border, margin: '18px 0 15px' }} />
+                <div style={{ display: 'grid', gap: 12, fontSize: 12, lineHeight: 1.6 }}>
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', color: C.ink }}>
+                    <MapPin size={15} color={C.blue} style={{ flexShrink: 0, marginTop: 2 }} />
+                    <span style={{ overflowWrap: 'anywhere' }}>{c.address || 'No address provided'}</span>
+                  </div>
+                  {c.phone && <div style={{ display: 'flex', gap: 10, alignItems: 'center', color: C.muted }}><Phone size={14} color={C.muted} /><span>{c.phone}</span></div>}
+                  {c.email && <div style={{ display: 'flex', gap: 10, alignItems: 'center', color: C.muted, minWidth: 0 }}><Mail size={14} color={C.muted} /><span style={{ overflowWrap: 'anywhere' }}>{c.email}</span></div>}
+                </div>
+
+                <div style={{ marginTop: 17, padding: '10px 11px', background: C.soft, border: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 7, color: C.muted }}>
+                    <LocateFixed size={14} />
+                    <span style={{ fontFamily: mono, fontSize: 9, letterSpacing: '.04em' }}>GEO COORDINATES</span>
+                  </div>
+                  {c.latitude != null && c.latitude !== '' && c.longitude != null && c.longitude !== '' ? (
+                    <span style={{ fontFamily: mono, fontSize: 10, color: C.ink }}>
+                      {Number(c.latitude).toFixed(4)}, {Number(c.longitude).toFixed(4)}
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: 11, color: C.muted }}>Not added</span>
+                  )}
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+        {!loading && centers.length > 0 && (
+          <div style={{ padding: '11px 18px', borderTop: `1px solid ${C.border}`, background: C.soft, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+            <span style={{ fontFamily: mono, fontSize: 9, letterSpacing: '.08em', color: C.muted }}>DOCConnect / ADMIN DIRECTORY</span>
+            <span style={{ fontSize: 11, color: C.muted }}>Showing {filteredCenters.length} of {centers.length} centers</span>
+          </div>
+        )}
+      </section>
+
       {showModal && (
         <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-            padding: 20,
-          }}
+          role="presentation"
+          onMouseDown={(e) => { if (e.target === e.currentTarget) closeModal(); }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(16,24,32,.55)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}
         >
-          <div style={{ background: '#fff', borderRadius: 16, padding: 24, maxWidth: 520, width: '100%' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>
-                {editingCenter ? 'Edit Medical Center' : 'Add New Medical Center'}
-              </h2>
-              <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-                <X size={20} color="#64748b" />
+          <div role="dialog" aria-modal="true" aria-labelledby="medical-center-modal-title" style={{ width: '100%', maxWidth: 570, maxHeight: '92vh', overflowY: 'auto', background: C.paper, border: `1px solid ${C.border}`, boxShadow: '0 24px 80px rgba(16,24,32,.2)' }}>
+            <div style={{ padding: '20px 23px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
+              <div>
+                <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: '.12em', color: C.blue, textTransform: 'uppercase', marginBottom: 8 }}>
+                  {editingCenter ? 'Update directory record' : 'New directory record'}
+                </div>
+                <h2 id="medical-center-modal-title" style={{ margin: 0, fontSize: 22, letterSpacing: '-.04em' }}>
+                  {editingCenter ? 'Edit medical center' : 'Add medical center'}<span style={{ color: C.orange }}>.</span>
+                </h2>
+                <p style={{ margin: '7px 0 0', fontSize: 12, lineHeight: 1.6, color: C.muted }}>Enter the location and contact information for this facility.</p>
+              </div>
+              <button type="button" aria-label="Close dialog" onClick={closeModal} disabled={saving} style={{ width: 34, height: 34, display: 'grid', placeItems: 'center', background: '#fff', border: `1px solid ${C.border}`, color: C.muted, cursor: saving ? 'not-allowed' : 'pointer' }}>
+                <X size={17} />
               </button>
             </div>
 
             <form onSubmit={handleSubmit}>
-              <div style={{ marginBottom: 14 }}>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6 }}>Center Name</label>
-                <input
-                  type="text"
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 14 }}
-                />
-              </div>
-
-              <div style={{ marginBottom: 14 }}>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6 }}>Full Address</label>
-                <textarea
-                  rows={2}
-                  required
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 14 }}
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+              <div style={{ padding: '22px 23px 24px', display: 'grid', gap: 17 }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6 }}>Latitude</label>
-                  <input
-                    type="number"
-                    step="any"
-                    placeholder="28.6139"
-                    value={latitude}
-                    onChange={(e) => setLatitude(e.target.value)}
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 14 }}
-                  />
+                  <label htmlFor="center-name" style={labelStyle}>Center name <span style={{ color: C.orange }}>*</span></label>
+                  <input id="center-name" type="text" required value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Central Medical Clinic" style={inputStyle} />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6 }}>Longitude</label>
-                  <input
-                    type="number"
-                    step="any"
-                    placeholder="77.2090"
-                    value={longitude}
-                    onChange={(e) => setLongitude(e.target.value)}
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 14 }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6 }}>Phone Number</label>
-                  <input
-                    type="text"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 14 }}
-                  />
+                  <label htmlFor="center-address" style={labelStyle}>Full address <span style={{ color: C.orange }}>*</span></label>
+                  <textarea id="center-address" rows={3} required value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Street, area, city, postal code" style={{ ...inputStyle, resize: 'vertical', minHeight: 86, lineHeight: 1.5 }} />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6 }}>Contact Email</label>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 14 }}
-                  />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 9 }}>
+                    <LocateFixed size={14} color={C.blue} />
+                    <span style={{ ...labelStyle, marginBottom: 0 }}>Geographical coordinates</span>
+                    <span style={{ fontSize: 10, color: C.muted }}>(optional)</span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+                    <div><label htmlFor="center-latitude" style={labelStyle}>Latitude</label><input id="center-latitude" type="number" step="any" min="-90" max="90" placeholder="18.5204" value={latitude} onChange={(e) => setLatitude(e.target.value)} style={inputStyle} /></div>
+                    <div><label htmlFor="center-longitude" style={labelStyle}>Longitude</label><input id="center-longitude" type="number" step="any" min="-180" max="180" placeholder="73.8567" value={longitude} onChange={(e) => setLongitude(e.target.value)} style={inputStyle} /></div>
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+                  <div><label htmlFor="center-phone" style={labelStyle}>Phone number</label><input id="center-phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+91 00000 00000" style={inputStyle} /></div>
+                  <div><label htmlFor="center-email" style={labelStyle}>Contact email</label><input id="center-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="contact@clinic.com" style={inputStyle} /></div>
                 </div>
               </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  style={{ padding: '10px 16px', borderRadius: 8, border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer' }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  style={{
-                    background: '#0ea5e9',
-                    color: '#fff',
-                    border: 'none',
-                    padding: '10px 22px',
-                    borderRadius: 8,
-                    fontSize: 14,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                  }}
-                >
-                  {editingCenter ? 'Update Center' : 'Save Center'}
-                </button>
+              <div style={{ padding: '15px 23px', background: C.soft, borderTop: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <span style={{ fontFamily: mono, fontSize: 9, letterSpacing: '.07em', color: C.muted }}>FIELDS MARKED * ARE REQUIRED</span>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button type="button" onClick={closeModal} disabled={saving} style={{ ...buttonBase, background: '#fff', color: C.ink, border: `1px solid ${C.border}`, opacity: saving ? .6 : 1 }}>Cancel</button>
+                  <button type="submit" disabled={saving} style={{ ...buttonBase, background: C.blue, color: '#fff', border: `1px solid ${C.blue}`, minWidth: 135, opacity: saving ? .7 : 1, cursor: saving ? 'wait' : 'pointer' }}>
+                    {saving ? <LoaderCircle size={14} /> : editingCenter ? <Pencil size={14} /> : <Plus size={15} />}
+                    {saving ? 'Saving…' : editingCenter ? 'Update center' : 'Save center'}
+                  </button>
+                </div>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      <style>{`
+        @keyframes dc-spin { to { transform: rotate(360deg); } }
+        @media (max-width: 560px) {
+          .medical-centers-responsive { padding-left: 12px; padding-right: 12px; }
+        }
+      `}</style>
     </div>
   );
 }

@@ -1,13 +1,85 @@
 import React, { useEffect, useState } from 'react';
 import { getAccessList, approveAccess } from '../../api/doctors';
 import { getAppointments, approveAppointment, rejectAppointment } from '../../api/appointments';
-import { Check, X, ShieldCheck, ShieldAlert, Calendar, User, Clock } from 'lucide-react';
+import {
+  Check,
+  X,
+  ShieldCheck,
+  ShieldAlert,
+  Calendar,
+  User,
+  Clock,
+  Users,
+  Stethoscope,
+  ClipboardCheck,
+  LoaderCircle,
+  MapPin,
+  Phone,
+} from 'lucide-react';
 import { toast } from 'react-hot-toast';
+
+const C = {
+  paper: '#FFFFFF',
+  ink: '#101820',
+  blue: '#1769D2',
+  orange: '#F07838',
+  muted: '#6E7882',
+  border: '#DCE2E7',
+  soft: '#F5F8FA',
+  blueSoft: '#EEF5FF',
+  orangeSoft: '#FFF3EB',
+  green: '#16845B',
+  greenSoft: '#ECF8F1',
+  red: '#C83D42',
+  redSoft: '#FFF1F1',
+  amber: '#A96A10',
+  amberSoft: '#FFF6E8',
+};
+
+const mono = '"IBM Plex Mono", "SFMono-Regular", Consolas, monospace';
+const body = '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+
+const btnBase = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 7,
+  padding: '10px 13px',
+  fontFamily: mono,
+  fontSize: 10,
+  fontWeight: 600,
+  letterSpacing: '.035em',
+  borderRadius: 4,
+  cursor: 'pointer',
+  whiteSpace: 'nowrap',
+};
+
+function EmptyQueue({ title, description }) {
+  return (
+    <div style={{ padding: '38px 18px', textAlign: 'center' }}>
+      <div style={{ width: 43, height: 43, margin: '0 auto 13px', display: 'grid', placeItems: 'center', background: C.greenSoft, color: C.green }}>
+        <Check size={20} />
+      </div>
+      <h3 style={{ margin: '0 0 6px', fontSize: 14, color: C.ink }}>{title}</h3>
+      <p style={{ margin: 0, color: C.muted, fontSize: 12, lineHeight: 1.6 }}>{description}</p>
+    </div>
+  );
+}
+
+function QueueCount({ children, tone = 'blue' }) {
+  const styles = {
+    blue: { background: C.blueSoft, color: C.blue },
+    orange: { background: C.orangeSoft, color: C.amber },
+    green: { background: C.greenSoft, color: C.green },
+  };
+  return <span style={{ ...styles[tone], fontFamily: mono, fontSize: 10, fontWeight: 600, padding: '4px 7px' }}>{children}</span>;
+}
 
 export default function AssistantApprovals() {
   const [accessRequests, setAccessRequests] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [working, setWorking] = useState({});
 
   useEffect(() => {
     fetchData();
@@ -16,12 +88,9 @@ export default function AssistantApprovals() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [accRes, appRes] = await Promise.all([
-        getAccessList(),
-        getAppointments(),
-      ]);
-      setAccessRequests(accRes.data || []);
-      setAppointments(appRes.data || []);
+      const [accRes, appRes] = await Promise.all([getAccessList(), getAppointments()]);
+      setAccessRequests(Array.isArray(accRes.data) ? accRes.data : accRes.data?.results || []);
+      setAppointments(Array.isArray(appRes.data) ? appRes.data : appRes.data?.results || []);
     } catch (err) {
       toast.error('Failed to load approval queues');
     } finally {
@@ -30,260 +99,228 @@ export default function AssistantApprovals() {
   };
 
   const handleAccessDecision = async (accessId, decision) => {
+    const key = `access-${accessId}`;
     try {
+      setWorking((current) => ({ ...current, [key]: true }));
       await approveAccess(accessId, decision);
       toast.success(`Patient request ${decision === 'approve' ? 'approved' : 'rejected'}`);
-      fetchData();
+      await fetchData();
     } catch (err) {
       toast.error(err.response?.data?.error || `Failed to ${decision} request`);
+    } finally {
+      setWorking((current) => ({ ...current, [key]: false }));
     }
   };
 
   const handleApproveAppointment = async (apptId) => {
+    const key = `appointment-${apptId}`;
     try {
+      setWorking((current) => ({ ...current, [key]: true }));
       await approveAppointment(apptId);
       toast.success('Appointment approved successfully!');
-      fetchData();
+      await fetchData();
     } catch (err) {
       toast.error('Failed to approve appointment');
+    } finally {
+      setWorking((current) => ({ ...current, [key]: false }));
     }
   };
 
   const handleRejectAppointment = async (apptId) => {
+    const key = `appointment-${apptId}`;
     try {
+      setWorking((current) => ({ ...current, [key]: true }));
       await rejectAppointment(apptId);
       toast.success('Appointment rejected');
-      fetchData();
+      await fetchData();
     } catch (err) {
       toast.error('Failed to reject appointment');
+    } finally {
+      setWorking((current) => ({ ...current, [key]: false }));
     }
   };
 
   const pendingAccess = accessRequests.filter((a) => a.status === 'pending');
   const pendingAppointments = appointments.filter((a) => a.status === 'pending_assistant');
 
+  const getPatientName = (patientInfo, patientId) => {
+    const patient = patientInfo || {};
+    return patient.first_name
+      ? `${patient.first_name} ${patient.last_name || ''}`.trim()
+      : patient.username || `Patient #${patientId}`;
+  };
+
+  if (loading) {
+    return (
+      <div style={{ maxWidth: 1240, margin: '0 auto', fontFamily: body, color: C.ink }}>
+        <div style={{ height: 3, width: 54, background: C.orange, marginBottom: 24 }} />
+        <div style={{ border: `1px solid ${C.border}`, minHeight: 280, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+          <LoaderCircle size={26} color={C.blue} style={{ animation: 'dc-approval-spin 1s linear infinite' }} />
+          <span style={{ fontFamily: mono, fontSize: 10, letterSpacing: '.12em', color: C.muted }}>LOADING APPROVAL QUEUES…</span>
+          <style>{`@keyframes dc-approval-spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 700, color: '#0f172a', margin: 0 }}>Clinical Approval Queue</h1>
-        <p style={{ color: '#64748b', marginTop: 4 }}>
-          Review and approve patient consultations and appointment bookings for your assigned doctor.
-        </p>
+    <div style={{ maxWidth: 1240, margin: '0 auto', padding: '8px 0 36px', color: C.ink, fontFamily: body }}>
+      <div style={{ height: 3, width: 54, background: C.orange, marginBottom: 24 }} />
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 20, flexWrap: 'wrap', marginBottom: 25 }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 10 }}>
+            <span style={{ width: 7, height: 7, background: C.blue, display: 'inline-block' }} />
+            <span style={{ fontFamily: mono, fontSize: 10, letterSpacing: '.13em', textTransform: 'uppercase', color: C.muted }}>DocConnect / Assistant workspace</span>
+          </div>
+          <h1 style={{ fontSize: 'clamp(27px, 3vw, 36px)', lineHeight: 1.1, letterSpacing: '-.045em', fontWeight: 700, margin: 0 }}>
+            Clinical approvals<span style={{ color: C.orange }}>.</span>
+          </h1>
+          <p style={{ color: C.muted, margin: '11px 0 0', maxWidth: 650, fontSize: 14, lineHeight: 1.65 }}>
+            Review patient consultation access and confirm appointment requests on behalf of your assigned doctor.
+          </p>
+        </div>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 11px', border: `1px solid ${C.border}`, background: C.paper }}>
+          <ShieldCheck size={15} color={C.blue} />
+          <span style={{ fontFamily: mono, fontSize: 10, letterSpacing: '.05em', color: C.muted }}>REVIEW QUEUE</span>
+        </div>
+      </header>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: 12, marginBottom: 23 }}>
+        <div style={{ border: `1px solid ${C.border}`, background: C.paper, padding: '16px 18px', position: 'relative' }}>
+          <div style={{ position: 'absolute', left: 0, top: 0, width: 36, height: 3, background: C.blue }} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}><span style={{ fontFamily: mono, fontSize: 10, letterSpacing: '.07em', color: C.muted }}>PATIENT ACCESS</span><Users size={17} color={C.blue} /></div>
+          <div style={{ marginTop: 12, fontSize: 30, fontWeight: 700, letterSpacing: '-.05em' }}>{pendingAccess.length}</div>
+          <div style={{ marginTop: 5, fontSize: 11, color: C.muted }}>Consultation requests awaiting review</div>
+        </div>
+        <div style={{ border: `1px solid ${C.border}`, background: C.paper, padding: '16px 18px', position: 'relative' }}>
+          <div style={{ position: 'absolute', left: 0, top: 0, width: 36, height: 3, background: C.orange }} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}><span style={{ fontFamily: mono, fontSize: 10, letterSpacing: '.07em', color: C.muted }}>APPOINTMENTS</span><Calendar size={17} color={C.orange} /></div>
+          <div style={{ marginTop: 12, fontSize: 30, fontWeight: 700, letterSpacing: '-.05em' }}>{pendingAppointments.length}</div>
+          <div style={{ marginTop: 5, fontSize: 11, color: C.muted }}>Bookings awaiting confirmation</div>
+        </div>
+        <div style={{ border: `1px solid ${C.border}`, background: C.paper, padding: '16px 18px', position: 'relative' }}>
+          <div style={{ position: 'absolute', left: 0, top: 0, width: 36, height: 3, background: C.green }} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}><span style={{ fontFamily: mono, fontSize: 10, letterSpacing: '.07em', color: C.muted }}>TOTAL PENDING</span><Clock size={17} color={C.green} /></div>
+          <div style={{ marginTop: 12, fontSize: 30, fontWeight: 700, letterSpacing: '-.05em' }}>{pendingAccess.length + pendingAppointments.length}</div>
+          <div style={{ marginTop: 5, fontSize: 11, color: C.muted }}>Items requiring assistant action</div>
+        </div>
       </div>
 
-      {/* Section 1: Patient Consultation Access Requests */}
-      <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', padding: 24, marginBottom: 28, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: '#0f172a' }}>
-            1. Patient Consultation Requests ({pendingAccess.length})
-          </h2>
-          <span style={{ fontSize: 12, color: '#64748b' }}>
-            Approving unlocks direct patient-doctor messaging and consultation booking.
-          </span>
+      <section style={{ border: `1px solid ${C.border}`, background: C.paper, marginBottom: 17 }}>
+        <div style={{ padding: '17px 20px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+            <span style={{ width: 34, height: 34, display: 'grid', placeItems: 'center', background: C.blueSoft, color: C.blue }}><ShieldCheck size={17} /></span>
+            <div>
+              <h2 style={{ margin: 0, fontSize: 14, letterSpacing: '-.02em' }}>Patient consultation access</h2>
+              <p style={{ margin: '4px 0 0', fontSize: 11, color: C.muted }}>Approving grants access to direct patient–doctor messaging and consultation booking.</p>
+            </div>
+          </div>
+          <QueueCount tone={pendingAccess.length ? 'blue' : 'green'}>{pendingAccess.length} PENDING</QueueCount>
         </div>
 
         {pendingAccess.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: 32, color: '#94a3b8' }}>
-            No pending patient consultation requests.
-          </div>
+          <EmptyQueue title="All consultation requests reviewed" description="There are no pending patient access requests right now." />
         ) : (
-          <div style={{ display: 'grid', gap: 14 }}>
-            {pendingAccess.map((req) => {
+          <div>
+            {pendingAccess.map((req, index) => {
               const pat = req.patient_info || {};
-              const patName = pat.first_name ? `${pat.first_name} ${pat.last_name || ''}`.trim() : (pat.username || `Patient #${req.patient}`);
+              const patName = getPatientName(pat, req.patient);
               const isAllowed = req.assistant_permission_granted;
-
+              const busy = working[`access-${req.id}`];
               return (
-                <div
-                  key={req.id}
-                  style={{
-                    border: '1px solid #e2e8f0',
-                    borderRadius: 10,
-                    padding: 16,
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    flexWrap: 'wrap',
-                    gap: 16,
-                    background: '#f8fafc',
-                  }}
-                >
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>
-                        {patName}
-                      </span>
-                      <span style={{ fontSize: 12, color: '#0369a1', background: '#e0f2fe', padding: '2px 8px', borderRadius: 6, fontWeight: 600 }}>
-                        For {req.doctor_info?.name || 'Assigned Doctor'}
-                      </span>
-                      <span
-                        style={{
-                          padding: '2px 8px',
-                          borderRadius: 6,
-                          fontSize: 11,
-                          fontWeight: 600,
-                          background: isAllowed ? '#dcfce7' : '#fee2e2',
-                          color: isAllowed ? '#166534' : '#991b1b',
-                        }}
-                      >
-                        {isAllowed ? 'Doctor Permission: Granted' : 'Doctor Permission: Revoked'}
+                <article key={req.id} style={{ padding: '18px 20px', borderBottom: index < pendingAccess.length - 1 ? `1px solid ${C.border}` : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 18 }}>
+                  <div style={{ flex: '1 1 350px', minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 9 }}>
+                      <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-.02em' }}>{patName}</span>
+                      <span style={{ background: C.blueSoft, color: C.blue, fontSize: 10, fontWeight: 600, padding: '4px 7px' }}>For {req.doctor_info?.name || 'Assigned Doctor'}</span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: isAllowed ? C.greenSoft : C.redSoft, color: isAllowed ? C.green : C.red, fontSize: 9, fontWeight: 700, padding: '4px 7px' }}>
+                        {isAllowed ? <ShieldCheck size={11} /> : <ShieldAlert size={11} />}
+                        Doctor permission: {isAllowed ? 'Granted' : 'Revoked'}
                       </span>
                     </div>
-
-                    <div style={{ fontSize: 13, color: '#64748b', marginTop: 4 }}>
-                      Email: {pat.email || 'N/A'} • Phone: {pat.phone || 'N/A'} • Requested on {new Date(req.created_at).toLocaleDateString()}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '7px 16px', fontSize: 11, color: C.muted }}>
+                      <span>{pat.email || 'No email provided'}</span>
+                      <span>{pat.phone || 'No phone provided'}</span>
+                      <span>Requested {req.created_at ? new Date(req.created_at).toLocaleDateString() : 'date unavailable'}</span>
                     </div>
                   </div>
-
-                  <div style={{ display: 'flex', gap: 10 }}>
-                    <button
-                      disabled={!isAllowed}
-                      onClick={() => handleAccessDecision(req.id, 'approve')}
-                      style={{
-                        background: isAllowed ? '#10b981' : '#cbd5e1',
-                        color: '#fff',
-                        border: 'none',
-                        padding: '8px 16px',
-                        borderRadius: 6,
-                        fontSize: 13,
-                        fontWeight: 600,
-                        cursor: isAllowed ? 'pointer' : 'not-allowed',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 6,
-                      }}
-                      title={!isAllowed ? 'Doctor has revoked permission to approve' : ''}
-                    >
-                      <Check size={16} /> Approve Consultation
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <button disabled={!isAllowed || busy} onClick={() => handleAccessDecision(req.id, 'approve')} title={!isAllowed ? 'Doctor has revoked permission to approve' : ''} style={{ ...btnBase, background: isAllowed ? C.green : C.soft, color: isAllowed ? '#fff' : C.muted, border: `1px solid ${isAllowed ? C.green : C.border}`, cursor: !isAllowed || busy ? 'not-allowed' : 'pointer', opacity: busy ? .7 : 1 }}>
+                      {busy ? <LoaderCircle size={14} /> : <Check size={14} />} Approve access
                     </button>
-
-                    <button
-                      onClick={() => handleAccessDecision(req.id, 'reject')}
-                      style={{
-                        background: '#fff',
-                        color: '#ef4444',
-                        border: '1px solid #fca5a5',
-                        padding: '8px 14px',
-                        borderRadius: 6,
-                        fontSize: 13,
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 6,
-                      }}
-                    >
-                      <X size={16} /> Reject
+                    <button disabled={busy} onClick={() => handleAccessDecision(req.id, 'reject')} style={{ ...btnBase, background: C.paper, color: C.red, border: `1px solid #EBCACA`, cursor: busy ? 'not-allowed' : 'pointer' }}>
+                      <X size={14} /> Reject
                     </button>
                   </div>
-                </div>
+                </article>
               );
             })}
           </div>
         )}
-      </div>
+      </section>
 
-      {/* Section 2: Appointment Booking Approvals */}
-      <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', padding: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-        <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 16px', color: '#0f172a' }}>
-          2. Appointment Bookings Awaiting Assistant Confirmation ({pendingAppointments.length})
-        </h2>
+      <section style={{ border: `1px solid ${C.border}`, background: C.paper }}>
+        <div style={{ padding: '17px 20px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+            <span style={{ width: 34, height: 34, display: 'grid', placeItems: 'center', background: C.orangeSoft, color: C.orange }}><Calendar size={17} /></span>
+            <div>
+              <h2 style={{ margin: 0, fontSize: 14, letterSpacing: '-.02em' }}>Appointment confirmations</h2>
+              <p style={{ margin: '4px 0 0', fontSize: 11, color: C.muted }}>Review booking details before confirming or rejecting the request.</p>
+            </div>
+          </div>
+          <QueueCount tone={pendingAppointments.length ? 'orange' : 'green'}>{pendingAppointments.length} PENDING</QueueCount>
+        </div>
 
         {pendingAppointments.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: 32, color: '#94a3b8' }}>
-            No appointments currently awaiting assistant confirmation.
-          </div>
+          <EmptyQueue title="No appointments awaiting confirmation" description="New bookings requiring assistant review will appear here." />
         ) : (
-          <div style={{ display: 'grid', gap: 14 }}>
-            {pendingAppointments.map((appt) => {
+          <div>
+            {pendingAppointments.map((appt, index) => {
               const pat = appt.patient_info || {};
-              const patName = pat.first_name ? `${pat.first_name} ${pat.last_name || ''}`.trim() : (pat.username || `Patient #${appt.patient}`);
-
+              const patName = getPatientName(pat, appt.patient);
+              const busy = working[`appointment-${appt.id}`];
               return (
-                <div
-                  key={appt.id}
-                  style={{
-                    border: '1px solid #e2e8f0',
-                    borderRadius: 10,
-                    padding: 16,
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    flexWrap: 'wrap',
-                    gap: 16,
-                    background: '#f8fafc',
-                  }}
-                >
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>
-                        {patName}
-                      </span>
-                      <span style={{ fontSize: 12, color: '#0369a1', background: '#e0f2fe', padding: '2px 8px', borderRadius: 6, fontWeight: 600 }}>
-                        {appt.doctor_info?.name ? `with Dr. ${appt.doctor_info.name}` : ''}
-                      </span>
-                      <span style={{ padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600, background: '#e0f2fe', color: '#0369a1' }}>
-                        {appt.mode.replace('_', ' ').toUpperCase()}
+                <article key={appt.id} style={{ padding: '18px 20px', borderBottom: index < pendingAppointments.length - 1 ? `1px solid ${C.border}` : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 18 }}>
+                  <div style={{ flex: '1 1 350px', minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+                      <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-.02em' }}>{patName}</span>
+                      {appt.doctor_info?.name && <span style={{ background: C.blueSoft, color: C.blue, fontSize: 10, fontWeight: 600, padding: '4px 7px' }}>with Dr. {appt.doctor_info.name}</span>}
+                      <span style={{ background: C.soft, color: C.muted, border: `1px solid ${C.border}`, padding: '4px 7px', fontFamily: mono, fontSize: 9 }}>
+                        {String(appt.mode || 'consultation').replaceAll('_', ' ').toUpperCase()}
                       </span>
                     </div>
-
-                    <div style={{ fontSize: 13, color: '#64748b', marginTop: 4 }}>
-                      Scheduled for: <strong>{new Date(appt.scheduled_at).toLocaleString()}</strong>
-                      {pat.phone ? ` • Contact: ${pat.phone}` : ''}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 17px', fontSize: 11, color: C.muted }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Calendar size={13} color={C.blue} /> {appt.scheduled_at ? new Date(appt.scheduled_at).toLocaleString() : 'Schedule not provided'}</span>
+                      {pat.phone && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Phone size={13} /> {pat.phone}</span>}
                     </div>
-
                     {appt.patient_notes && (
-                      <div style={{ fontSize: 13, color: '#334155', marginTop: 6 }}>
-                        <em>Note: "{appt.patient_notes}"</em>
+                      <div style={{ marginTop: 12, padding: '10px 12px', borderLeft: `3px solid ${C.orange}`, background: C.soft, color: C.ink, fontSize: 12, lineHeight: 1.6 }}>
+                        <span style={{ display: 'block', fontFamily: mono, fontSize: 9, letterSpacing: '.08em', color: C.muted, marginBottom: 4 }}>PATIENT NOTE</span>
+                        {appt.patient_notes}
                       </div>
                     )}
                   </div>
-
-                  <div style={{ display: 'flex', gap: 10 }}>
-                    <button
-                      onClick={() => handleApproveAppointment(appt.id)}
-                      style={{
-                        background: '#10b981',
-                        color: '#fff',
-                        border: 'none',
-                        padding: '8px 16px',
-                        borderRadius: 6,
-                        fontSize: 13,
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 6,
-                      }}
-                    >
-                      <Check size={16} /> Confirm Appointment
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <button disabled={busy} onClick={() => handleApproveAppointment(appt.id)} style={{ ...btnBase, background: C.green, color: '#fff', border: `1px solid ${C.green}`, cursor: busy ? 'wait' : 'pointer', opacity: busy ? .7 : 1 }}>
+                      {busy ? <LoaderCircle size={14} /> : <Check size={14} />} Confirm booking
                     </button>
-
-                    <button
-                      onClick={() => handleRejectAppointment(appt.id)}
-                      style={{
-                        background: '#fff',
-                        color: '#ef4444',
-                        border: '1px solid #fca5a5',
-                        padding: '8px 14px',
-                        borderRadius: 6,
-                        fontSize: 13,
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 6,
-                      }}
-                    >
-                      <X size={16} /> Reject
+                    <button disabled={busy} onClick={() => handleRejectAppointment(appt.id)} style={{ ...btnBase, background: C.paper, color: C.red, border: `1px solid #EBCACA`, cursor: busy ? 'wait' : 'pointer' }}>
+                      <X size={14} /> Reject
                     </button>
                   </div>
-                </div>
+                </article>
               );
             })}
           </div>
         )}
+      </section>
+
+      <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 8, color: C.muted, fontSize: 10, lineHeight: 1.5 }}>
+        <ShieldCheck size={14} color={C.blue} />
+        <span>Access approvals respect the assigned doctor’s permission settings.</span>
       </div>
+
+      <style>{`@keyframes dc-approval-spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }

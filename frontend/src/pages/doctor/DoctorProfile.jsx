@@ -3,7 +3,23 @@ import { useAuth } from '../../context/AuthContext';
 import { getDoctorProfile, updateDoctorProfile } from '../../api/doctors';
 import { updateProfile } from '../../api/auth';
 import axiosInstance from '../../api/axiosInstance';
-import { User, Stethoscope, Clock, ShieldCheck, Save, DollarSign } from 'lucide-react';
+import {
+  User,
+  Stethoscope,
+  Clock,
+  ShieldCheck,
+  Save,
+  DollarSign,
+  Phone,
+  MapPin,
+  BadgeCheck,
+  CalendarDays,
+  UserRound,
+  UserPlus,
+  Trash2,
+  Check,
+  AlertCircle,
+} from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 const SPECIALIZATIONS = [
@@ -22,12 +38,73 @@ const SPECIALIZATIONS = [
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
+const C = {
+  paper: '#FFFFFF',
+  ink: '#101820',
+  blue: '#1769D2',
+  orange: '#F07838',
+  muted: '#6E7882',
+  border: '#DCE2E7',
+  soft: '#F5F8FA',
+  blueSoft: '#EEF5FD',
+  green: '#16805D',
+  greenSoft: '#EAF6F0',
+  amber: '#9A6200',
+  amberSoft: '#FFF5E5',
+  red: '#B83B36',
+  redSoft: '#FFF0EF',
+};
+
+const mono = "'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace";
+const ui = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+
+const fieldStyle = {
+  width: '100%',
+  boxSizing: 'border-box',
+  padding: '11px 12px',
+  border: `1px solid ${C.border}`,
+  borderRadius: 4,
+  background: C.paper,
+  color: C.ink,
+  fontFamily: ui,
+  fontSize: 13,
+  outlineColor: C.blue,
+};
+
+const labelStyle = {
+  display: 'block',
+  marginBottom: 7,
+  fontFamily: mono,
+  fontSize: 10,
+  fontWeight: 700,
+  letterSpacing: '.07em',
+  textTransform: 'uppercase',
+  color: C.muted,
+};
+
+const buttonStyle = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 8,
+  minHeight: 40,
+  padding: '10px 14px',
+  borderRadius: 5,
+  fontFamily: mono,
+  fontSize: 11,
+  fontWeight: 700,
+  letterSpacing: '.025em',
+  textTransform: 'uppercase',
+  cursor: 'pointer',
+};
+
 export default function DoctorProfile() {
   const { user, profile, reloadUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [assistantBusy, setAssistantBusy] = useState(false);
+  const [permissionBusy, setPermissionBusy] = useState(false);
 
-  // Form states
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
@@ -41,7 +118,6 @@ export default function DoctorProfile() {
   const [isAccepting, setIsAccepting] = useState(true);
   const [availableDays, setAvailableDays] = useState([]);
 
-  // Assistant states
   const [assistant, setAssistant] = useState(null);
   const [assistantCanApprove, setAssistantCanApprove] = useState(true);
   const [availableAssistants, setAvailableAssistants] = useState([]);
@@ -55,12 +131,13 @@ export default function DoctorProfile() {
   const fetchAssistants = async () => {
     try {
       const res = await axiosInstance.get('/assistants/');
-      setAvailableAssistants(res.data || []);
-      if (res.data?.length > 0) {
-        setSelectedAssistantId(res.data[0].id || res.data[0].user_id);
+      const list = Array.isArray(res.data) ? res.data : (res.data?.results ?? []);
+      setAvailableAssistants(list);
+      if (list.length > 0) {
+        setSelectedAssistantId(String(list[0].id || list[0].user_id || ''));
       }
     } catch {
-      // ignore
+      // Keep the profile usable if assistant discovery fails.
     }
   };
 
@@ -70,8 +147,8 @@ export default function DoctorProfile() {
       const res = await getDoctorProfile();
       const doc = res.data;
       setSpecialization(doc.specialization || 'general');
-      setExperienceYears(doc.experience_years || 0);
-      setConsultationFee(doc.consultation_fee || 0);
+      setExperienceYears(doc.experience_years ?? 0);
+      setConsultationFee(doc.consultation_fee ?? 0);
       setBio(doc.bio || '');
       setLicenseNumber(doc.license_number || '');
       setIsAccepting(doc.is_accepting_patients ?? true);
@@ -93,18 +170,15 @@ export default function DoctorProfile() {
   };
 
   const handleDayToggle = (day) => {
-    if (availableDays.includes(day)) {
-      setAvailableDays(availableDays.filter((d) => d !== day));
-    } else {
-      setAvailableDays([...availableDays, day]);
-    }
+    setAvailableDays((current) => (
+      current.includes(day) ? current.filter((d) => d !== day) : [...current, day]
+    ));
   };
 
   const handleSave = async (e) => {
     e.preventDefault();
     setSaving(true);
     try {
-      // 1. Update basic user info
       await updateProfile({
         first_name: firstName,
         last_name: lastName,
@@ -112,7 +186,6 @@ export default function DoctorProfile() {
         address,
       });
 
-      // 2. Update doctor profile
       await updateDoctorProfile({
         specialization,
         experience_years: Number(experienceYears),
@@ -139,345 +212,224 @@ export default function DoctorProfile() {
       toast.error('Please select an assistant from the list');
       return;
     }
+    setAssistantBusy(true);
     try {
       const res = await axiosInstance.post('/assistant/assign-doctor/', {
         assistant_user_id: selectedAssistantId,
       });
       toast.success(res.data.message || 'Assistant appointed successfully!');
-      fetchProfileData();
+      await fetchProfileData();
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to appoint assistant');
+    } finally {
+      setAssistantBusy(false);
     }
   };
 
   const handleRemoveAssistant = async () => {
     if (!window.confirm('Are you sure you want to remove your appointed assistant? Consultation requests will be handled directly by you.')) return;
+    setAssistantBusy(true);
     try {
       await axiosInstance.post('/assistant/assign-doctor/', { action: 'remove' });
       toast.success('Assistant removed. You now handle consultation requests directly.');
-      fetchProfileData();
+      await fetchProfileData();
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to remove assistant');
+    } finally {
+      setAssistantBusy(false);
     }
   };
 
   const handleTogglePermission = async () => {
+    if (permissionBusy) return;
     const nextState = !assistantCanApprove;
+    setPermissionBusy(true);
     try {
       await axiosInstance.post('/access/grant-assistant-permission/', { grant: nextState });
       setAssistantCanApprove(nextState);
       toast.success(`Assistant permission to approve patients ${nextState ? 'GRANTED' : 'REVOKED'}`);
     } catch (err) {
       toast.error('Failed to update assistant permission');
+    } finally {
+      setPermissionBusy(false);
     }
   };
 
   if (loading) {
-    return <div style={{ textAlign: 'center', padding: 60, color: '#64748b' }}>Loading doctor profile...</div>;
+    return (
+      <div style={{ maxWidth: 1180, margin: '0 auto', padding: '70px 20px', textAlign: 'center', color: C.muted, fontFamily: mono, fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase' }}>
+        <style>{`@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap');`}</style>
+        Loading doctor profile…
+      </div>
+    );
   }
 
+  const sectionTitle = (number, title, subtitle) => (
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 20 }}>
+      <span style={{ fontFamily: mono, color: C.orange, fontSize: 11, fontWeight: 700, paddingTop: 3 }}>{number}</span>
+      <div>
+        <h2 style={{ margin: 0, fontSize: 16, lineHeight: 1.4, fontWeight: 750, color: C.ink }}>{title}</h2>
+        {subtitle && <p style={{ margin: '5px 0 0', fontSize: 12, lineHeight: 1.5, color: C.muted }}>{subtitle}</p>}
+      </div>
+    </div>
+  );
+
   return (
-    <div style={{ maxWidth: 900, margin: '0 auto' }}>
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 700, color: '#0f172a', margin: 0 }}>Doctor Profile & Practice Settings</h1>
-        <p style={{ color: '#64748b', marginTop: 4 }}>
-          Keep your medical credentials, consultation fees, and assistant appointment up to date.
+    <div style={{ maxWidth: 1120, margin: '0 auto', padding: '8px 0 36px', color: C.ink, fontFamily: ui }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap');
+        .dprof-field:focus-visible, .dprof-action:focus-visible { outline: 2px solid ${C.blue}; outline-offset: 2px; }
+        .dprof-action:disabled { opacity: .55; cursor: not-allowed !important; }
+        .dprof-card { border: 1px solid ${C.border}; background: ${C.paper}; }
+        .dprof-section { padding: 24px; }
+        .dprof-grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+        .dprof-day { transition: background 120ms ease, border-color 120ms ease; }
+        @media (max-width: 760px) {
+          .dprof-grid2 { grid-template-columns: 1fr; }
+          .dprof-section { padding: 18px !important; }
+          .dprof-assistant-head { align-items: flex-start !important; flex-direction: column !important; }
+          .dprof-assistant-actions { width: 100%; }
+          .dprof-assistant-actions button { flex: 1; }
+        }
+      `}</style>
+
+      <header style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 9 }}>
+          <span style={{ height: 3, width: 22, background: C.orange }} />
+          <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, letterSpacing: '.13em', color: C.muted, textTransform: 'uppercase' }}>Doctor workspace / account configuration</span>
+        </div>
+        <h1 style={{ margin: 0, fontSize: 'clamp(26px, 3vw, 34px)', lineHeight: 1.2, letterSpacing: '-.045em', fontWeight: 800 }}>
+          Practice settings<span style={{ color: C.orange }}>.</span>
+        </h1>
+        <p style={{ color: C.muted, margin: '9px 0 0', maxWidth: 660, fontSize: 14, lineHeight: 1.6 }}>
+          Manage your professional details, consultation availability, and delegated patient access.
         </p>
-      </div>
+      </header>
 
-      {/* Assistant Status Card */}
-      <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', padding: 20, marginBottom: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 10 }}>
+      <section className="dprof-card" style={{ marginBottom: 20 }}>
+        <div style={{ padding: '17px 22px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <ShieldCheck size={22} color="#0ea5e9" />
-            <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: '#0f172a' }}>
-              Assistant Appointment & Delegation
-            </h2>
-          </div>
-          <span style={{ fontSize: 12, color: '#64748b', background: '#f1f5f9', padding: '4px 8px', borderRadius: 6 }}>
-            Rule: Max 1 assistant per doctor
-          </span>
-        </div>
-
-        {assistant ? (
-          <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: 18 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 16, color: '#166534' }}>
-                  Current Assistant: {assistant.name || assistant.username}
-                </div>
-                <div style={{ fontSize: 13, color: '#15803d', marginTop: 4 }}>
-                  Username: @{assistant.username} • Email: {assistant.email || 'N/A'} • Phone: {assistant.phone || 'N/A'}
-                </div>
-                <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 4,
-                      padding: '3px 10px',
-                      borderRadius: 999,
-                      fontSize: 12,
-                      fontWeight: 700,
-                      background: assistantCanApprove ? '#dcfce7' : '#fee2e2',
-                      color: assistantCanApprove ? '#166534' : '#991b1b',
-                      border: `1px solid ${assistantCanApprove ? '#86efac' : '#fca5a5'}`,
-                    }}
-                  >
-                    {assistantCanApprove ? '✓ Permission Granted to Approve Consultations' : '✕ Approval Permission Revoked'}
-                  </span>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  onClick={handleTogglePermission}
-                  style={{
-                    background: assistantCanApprove ? '#ea580c' : '#10b981',
-                    color: '#fff',
-                    border: 'none',
-                    padding: '8px 14px',
-                    borderRadius: 8,
-                    fontSize: 12.5,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                  }}
-                >
-                  {assistantCanApprove ? 'Revoke Approval Permission' : 'Grant Approval Permission'}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleRemoveAssistant}
-                  style={{
-                    background: '#fff',
-                    color: '#ef4444',
-                    border: '1px solid #fca5a5',
-                    padding: '8px 14px',
-                    borderRadius: 8,
-                    fontSize: 12.5,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                  }}
-                >
-                  Remove Assistant
-                </button>
-              </div>
+            <div style={{ width: 36, height: 36, display: 'grid', placeItems: 'center', background: C.blueSoft, color: C.blue }}><ShieldCheck size={18} /></div>
+            <div>
+              <h2 style={{ margin: 0, fontSize: 15, fontWeight: 750 }}>Assistant appointment & delegation</h2>
+              <p style={{ margin: '4px 0 0', fontSize: 11, color: C.muted }}>Manage your assigned clinical assistant and approval authority.</p>
             </div>
           </div>
-        ) : (
-          <div>
-            <div style={{ background: '#fffbeb', border: '1px solid #fef3c7', borderRadius: 8, padding: 14, marginBottom: 16 }}>
-              <div style={{ fontWeight: 600, color: '#92400e' }}>No Assistant Currently Appointed</div>
-              <div style={{ fontSize: 13, color: '#b45309', marginTop: 4 }}>
-                When no assistant is appointed, patient consultation requests are received and handled directly by you. Select a registered clinical assistant below to delegate patient intake and scheduling:
+          <span style={{ fontFamily: mono, fontSize: 10, color: C.muted, padding: '6px 8px', border: `1px solid ${C.border}`, background: C.soft }}>MAX. 1 ASSISTANT / DOCTOR</span>
+        </div>
+
+        <div style={{ padding: 22 }}>
+          {assistant ? (
+            <div style={{ border: `1px solid ${assistantCanApprove ? '#C9E9DA' : '#F0DFBD'}`, background: assistantCanApprove ? C.greenSoft : C.amberSoft, padding: 18 }}>
+              <div className="dprof-assistant-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 18 }}>
+                <div style={{ display: 'flex', gap: 13, minWidth: 0 }}>
+                  <div style={{ width: 46, height: 46, flex: '0 0 auto', display: 'grid', placeItems: 'center', background: C.paper, border: `1px solid ${C.border}`, color: C.blue }}><UserRound size={21} /></div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 15, fontWeight: 750, color: C.ink }}>{assistant.name || assistant.username}</div>
+                    <div style={{ fontFamily: mono, fontSize: 10, color: C.muted, marginTop: 4 }}>@{assistant.username}</div>
+                    <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.7, marginTop: 7, overflowWrap: 'anywhere' }}>
+                      {assistant.email || 'No email provided'} <span style={{ color: C.border }}>·</span> {assistant.phone || 'No phone provided'}
+                    </div>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 10, padding: '5px 8px', border: `1px solid ${assistantCanApprove ? '#B6DECB' : '#E9D4A9'}`, background: C.paper, color: assistantCanApprove ? C.green : C.amber, fontFamily: mono, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.04em' }}>
+                      {assistantCanApprove ? <Check size={12} /> : <AlertCircle size={12} />}
+                      {assistantCanApprove ? 'Approval permission granted' : 'Approval permission revoked'}
+                    </span>
+                  </div>
+                </div>
+                <div className="dprof-assistant-actions" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <button className="dprof-action" type="button" disabled={permissionBusy || assistantBusy} onClick={handleTogglePermission} style={{ ...buttonStyle, background: assistantCanApprove ? C.paper : C.blue, color: assistantCanApprove ? C.red : '#FFFFFF', border: `1px solid ${assistantCanApprove ? '#E6C7C4' : C.blue}` }}>
+                    {permissionBusy ? 'Updating…' : assistantCanApprove ? 'Revoke approval' : 'Grant approval'}
+                  </button>
+                  <button className="dprof-action" type="button" disabled={assistantBusy || permissionBusy} onClick={handleRemoveAssistant} style={{ ...buttonStyle, background: C.paper, color: C.red, border: '1px solid #E6C7C4' }}>
+                    <Trash2 size={13} /> {assistantBusy ? 'Updating…' : 'Remove assistant'}
+                  </button>
+                </div>
               </div>
             </div>
-
-            <form onSubmit={handleAssignAssistant} style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-              <select
-                value={selectedAssistantId}
-                onChange={(e) => setSelectedAssistantId(e.target.value)}
-                style={{ flex: 1, minWidth: 260, padding: '10px 14px', borderRadius: 8, border: '1.5px solid #cbd5e1', fontSize: 14 }}
-              >
-                {availableAssistants.length === 0 ? (
-                  <option value="">No registered assistants found</option>
-                ) : (
-                  availableAssistants.map((ast) => (
-                    <option key={ast.id} value={ast.user_id || ast.id}>
-                      {ast.name} (@{ast.username}) - {ast.email}
-                    </option>
-                  ))
-                )}
-              </select>
-              <button
-                type="submit"
-                disabled={availableAssistants.length === 0}
-                style={{
-                  background: '#0ea5e9',
-                  color: '#fff',
-                  border: 'none',
-                  padding: '10px 20px',
-                  borderRadius: 8,
-                  fontSize: 14,
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
-              >
-                Appoint Assistant
-              </button>
-            </form>
-          </div>
-        )}
-      </div>
-
-      {/* Main Profile Form */}
-      <form onSubmit={handleSave} style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', padding: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-        <h2 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 16px', color: '#0f172a' }}>Personal & Contact Details</h2>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
-          <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6 }}>First Name</label>
-            <input
-              type="text"
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 14 }}
-            />
-          </div>
-          <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6 }}>Last Name</label>
-            <input
-              type="text"
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-              style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 14 }}
-            />
-          </div>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
-          <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6 }}>Contact Phone</label>
-            <input
-              type="text"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 14 }}
-            />
-          </div>
-          <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6 }}>Clinic / Chamber Address</label>
-            <input
-              type="text"
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 14 }}
-            />
-          </div>
-        </div>
-
-        <h2 style={{ fontSize: 16, fontWeight: 700, margin: '24px 0 16px', color: '#0f172a', borderTop: '1px solid #f1f5f9', paddingTop: 20 }}>
-          Professional Information
-        </h2>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
-          <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6 }}>Medical Specialization</label>
-            <select
-              value={specialization}
-              onChange={(e) => setSpecialization(e.target.value)}
-              style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 14 }}
-            >
-              {SPECIALIZATIONS.map((s) => (
-                <option key={s.value} value={s.value}>{s.label}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6 }}>Medical License / Registration No.</label>
-            <input
-              type="text"
-              value={licenseNumber}
-              onChange={(e) => setLicenseNumber(e.target.value)}
-              style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 14 }}
-            />
-          </div>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
-          <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6 }}>Years of Clinical Experience</label>
-            <input
-              type="number"
-              min="0"
-              value={experienceYears}
-              onChange={(e) => setExperienceYears(e.target.value)}
-              style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 14 }}
-            />
-          </div>
-          <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6 }}>Consultation Fee ($ / ₹)</label>
-            <input
-              type="number"
-              min="0"
-              value={consultationFee}
-              onChange={(e) => setConsultationFee(e.target.value)}
-              style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 14 }}
-            />
-          </div>
-        </div>
-
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6 }}>Professional Bio</label>
-          <textarea
-            rows={3}
-            value={bio}
-            onChange={(e) => setBio(e.target.value)}
-            style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 14 }}
-          />
-        </div>
-
-        <div style={{ marginBottom: 20 }}>
-          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 8 }}>Available Consultation Days</label>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            {DAYS.map((day) => {
-              const active = availableDays.includes(day);
-              return (
-                <button
-                  type="button"
-                  key={day}
-                  onClick={() => handleDayToggle(day)}
-                  style={{
-                    padding: '8px 14px',
-                    borderRadius: 8,
-                    fontSize: 13,
-                    fontWeight: 600,
-                    border: `1px solid ${active ? '#0ea5e9' : '#cbd5e1'}`,
-                    background: active ? '#0ea5e9' : '#fff',
-                    color: active ? '#fff' : '#475569',
-                    cursor: 'pointer',
-                  }}
-                >
-                  {day}
+          ) : (
+            <>
+              <div style={{ display: 'flex', gap: 11, padding: 14, marginBottom: 17, background: C.amberSoft, border: '1px solid #F0DFBD' }}>
+                <AlertCircle size={17} color={C.amber} style={{ flex: '0 0 auto', marginTop: 1 }} />
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 750, color: C.ink }}>No assistant currently appointed</div>
+                  <p style={{ margin: '5px 0 0', fontSize: 12, lineHeight: 1.6, color: C.muted }}>You will handle consultation requests directly. Select a registered clinical assistant to delegate patient intake and scheduling.</p>
+                </div>
+              </div>
+              <form onSubmit={handleAssignAssistant} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <select className="dprof-field" value={selectedAssistantId} onChange={(e) => setSelectedAssistantId(e.target.value)} style={{ ...fieldStyle, flex: '1 1 300px', minWidth: 0 }} disabled={availableAssistants.length === 0}>
+                  {availableAssistants.length === 0 ? <option value="">No registered assistants found</option> : availableAssistants.map((ast) => <option key={ast.id} value={ast.user_id || ast.id}>{ast.name} (@{ast.username}) - {ast.email}</option>)}
+                </select>
+                <button className="dprof-action" type="submit" disabled={availableAssistants.length === 0 || assistantBusy} style={{ ...buttonStyle, background: C.blue, color: '#FFFFFF', border: `1px solid ${C.blue}` }}>
+                  <UserPlus size={15} /> {assistantBusy ? 'Appointing…' : 'Appoint assistant'}
                 </button>
-              );
-            })}
-          </div>
+              </form>
+            </>
+          )}
+        </div>
+      </section>
+
+      <form onSubmit={handleSave} className="dprof-card">
+        <div style={{ padding: '17px 22px', borderBottom: `1px solid ${C.border}` }}>
+          <h2 style={{ margin: 0, fontSize: 15, fontWeight: 750 }}>Doctor profile</h2>
+          <p style={{ margin: '5px 0 0', color: C.muted, fontSize: 12 }}>Keep your contact details and clinical credentials current.</p>
         </div>
 
-        <div style={{ marginBottom: 24, display: 'flex', alignItems: 'center', gap: 10 }}>
-          <input
-            type="checkbox"
-            id="acceptingPatients"
-            checked={isAccepting}
-            onChange={(e) => setIsAccepting(e.target.checked)}
-            style={{ width: 18, height: 18, accentColor: '#0ea5e9' }}
-          />
-          <label htmlFor="acceptingPatients" style={{ fontSize: 14, fontWeight: 500, color: '#0f172a', cursor: 'pointer' }}>
-            Currently accepting new patient consultation requests
+        <section className="dprof-section">
+          {sectionTitle('01', 'Personal & contact details', 'Your name and the best way for patients to reach your practice.')}
+          <div className="dprof-grid2">
+            <div><label style={labelStyle}>First name</label><input className="dprof-field" type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} style={fieldStyle} /></div>
+            <div><label style={labelStyle}>Last name</label><input className="dprof-field" type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} style={fieldStyle} /></div>
+            <div><label style={labelStyle}><Phone size={11} style={{ display: 'inline', marginRight: 5 }} />Contact phone</label><input className="dprof-field" type="text" value={phone} onChange={(e) => setPhone(e.target.value)} style={fieldStyle} /></div>
+            <div><label style={labelStyle}><MapPin size={11} style={{ display: 'inline', marginRight: 5 }} />Clinic / chamber address</label><input className="dprof-field" type="text" value={address} onChange={(e) => setAddress(e.target.value)} style={fieldStyle} /></div>
+          </div>
+        </section>
+
+        <div style={{ height: 1, background: C.border }} />
+
+        <section className="dprof-section">
+          {sectionTitle('02', 'Professional information', 'Credentials and details about your medical practice.')}
+          <div className="dprof-grid2" style={{ marginBottom: 16 }}>
+            <div><label style={labelStyle}><Stethoscope size={11} style={{ display: 'inline', marginRight: 5 }} />Medical specialization</label><select className="dprof-field" value={specialization} onChange={(e) => setSpecialization(e.target.value)} style={fieldStyle}>{SPECIALIZATIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}</select></div>
+            <div><label style={labelStyle}><BadgeCheck size={11} style={{ display: 'inline', marginRight: 5 }} />Medical license / registration no.</label><input className="dprof-field" type="text" value={licenseNumber} onChange={(e) => setLicenseNumber(e.target.value)} style={fieldStyle} /></div>
+            <div><label style={labelStyle}><Clock size={11} style={{ display: 'inline', marginRight: 5 }} />Years of clinical experience</label><input className="dprof-field" type="number" min="0" value={experienceYears} onChange={(e) => setExperienceYears(e.target.value)} style={fieldStyle} /></div>
+            <div><label style={labelStyle}><DollarSign size={11} style={{ display: 'inline', marginRight: 5 }} />Consultation fee ($ / ₹)</label><input className="dprof-field" type="number" min="0" value={consultationFee} onChange={(e) => setConsultationFee(e.target.value)} style={fieldStyle} /></div>
+          </div>
+          <div><label style={labelStyle}>Professional bio</label><textarea className="dprof-field" rows={4} value={bio} onChange={(e) => setBio(e.target.value)} style={{ ...fieldStyle, resize: 'vertical', lineHeight: 1.6 }} placeholder="Describe your clinical experience, areas of focus, and approach to patient care." /></div>
+        </section>
+
+        <div style={{ height: 1, background: C.border }} />
+
+        <section className="dprof-section">
+          {sectionTitle('03', 'Consultation availability', 'Choose the days you are available and whether you are accepting new requests.')}
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ ...labelStyle, marginBottom: 11 }}><CalendarDays size={11} style={{ display: 'inline', marginRight: 5 }} />Available consultation days</label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {DAYS.map((day) => {
+                const active = availableDays.includes(day);
+                return (
+                  <button className="dprof-day dprof-action" type="button" key={day} aria-pressed={active} onClick={() => handleDayToggle(day)} style={{ ...buttonStyle, minHeight: 36, padding: '8px 11px', background: active ? C.blueSoft : C.paper, color: active ? C.blue : C.muted, border: `1px solid ${active ? '#B9D1F0' : C.border}` }}>
+                    {active && <Check size={12} />} {day}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <label htmlFor="dprof-accepting" style={{ display: 'flex', alignItems: 'flex-start', gap: 11, padding: 14, border: `1px solid ${isAccepting ? '#C9E9DA' : C.border}`, background: isAccepting ? C.greenSoft : C.soft, cursor: 'pointer' }}>
+            <input id="dprof-accepting" type="checkbox" checked={isAccepting} onChange={(e) => setIsAccepting(e.target.checked)} style={{ width: 16, height: 16, marginTop: 2, accentColor: C.blue }} />
+            <span>
+              <span style={{ display: 'block', fontSize: 13, fontWeight: 750, color: C.ink }}>Accepting new patient consultations</span>
+              <span style={{ display: 'block', marginTop: 4, fontSize: 12, lineHeight: 1.5, color: C.muted }}>Turn this off when you are not accepting new consultation requests.</span>
+            </span>
           </label>
-        </div>
+        </section>
 
-        <button
-          type="submit"
-          disabled={saving}
-          style={{
-            background: '#0ea5e9',
-            color: '#fff',
-            border: 'none',
-            padding: '12px 28px',
-            borderRadius: 8,
-            fontSize: 14,
-            fontWeight: 700,
-            cursor: saving ? 'not-allowed' : 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-          }}
-        >
-          <Save size={18} /> {saving ? 'Saving...' : 'Save Profile Changes'}
-        </button>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '17px 22px', borderTop: `1px solid ${C.border}`, background: C.soft }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 7, color: C.muted, fontSize: 11 }}><ShieldCheck size={14} color={C.blue} /> Your profile details are saved to your DocConnect account.</span>
+          <button className="dprof-action" type="submit" disabled={saving} style={{ ...buttonStyle, minHeight: 43, padding: '12px 18px', background: C.blue, color: '#FFFFFF', border: `1px solid ${C.blue}` }}>
+            <Save size={15} /> {saving ? 'Saving changes…' : 'Save profile changes'}
+          </button>
+        </div>
       </form>
     </div>
   );

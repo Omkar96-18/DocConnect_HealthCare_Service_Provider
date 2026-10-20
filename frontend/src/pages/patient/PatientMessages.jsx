@@ -1,10 +1,27 @@
 import React, { useEffect, useState, useRef } from 'react';
 import toast from 'react-hot-toast';
-import { getConversations, getMessages, sendMessage as sendMsgApi, startConversation } from '../../api/messages';
+import {
+  getConversations,
+  getMessages,
+  sendMessage as sendMsgApi,
+  startConversation,
+} from '../../api/messages';
 import { ChatWebSocket } from '../../utils/websocket';
 import { useAuth } from '../../context/AuthContext';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import { Send, MessageCircle } from 'lucide-react';
+
+const COLORS = {
+  ink: '#101820',
+  blue: '#1769D2',
+  orange: '#F07838',
+  muted: '#6E7882',
+  border: '#DCE2E7',
+  paper: '#FFFFFF',
+  soft: '#F6F8FA',
+};
+
+const mono = '"IBM Plex Mono", monospace';
 
 export default function PatientMessages() {
   const { user } = useAuth();
@@ -28,6 +45,8 @@ export default function PatientMessages() {
 
   useEffect(() => {
     if (!activeConv) return;
+
+    setMessages([]);
     setMsgLoading(true);
     getMessages(activeConv.id)
       .then(({ data }) => {
@@ -36,12 +55,14 @@ export default function PatientMessages() {
       .catch(() => toast.error('Failed to load messages'))
       .finally(() => setMsgLoading(false));
 
-    // WebSocket
     if (wsRef.current) wsRef.current.close();
     wsRef.current = new ChatWebSocket(activeConv.id, (msg) => {
       setMessages((prev) => [...prev, msg]);
     });
-    return () => { wsRef.current?.close(); };
+
+    return () => {
+      wsRef.current?.close();
+    };
   }, [activeConv]);
 
   useEffect(() => {
@@ -55,175 +76,285 @@ export default function PatientMessages() {
     setNewMsg('');
   };
 
-  const s = {
-    container: {
+  const getConversationName = (conversation) => {
+    const other = conversation.participants?.find((participant) => participant.id !== user?.id);
+    return other ? `${other.first_name} ${other.last_name}`.trim() : 'Conversation';
+  };
+
+  const styles = {
+    page: {
+      color: COLORS.ink,
+      fontFamily: mono,
+      minWidth: 0,
+    },
+    eyebrow: {
       display: 'flex',
-      height: 'calc(100vh - 130px)',
-      background: '#fff',
-      borderRadius: 14,
-      boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+      alignItems: 'center',
+      gap: 9,
+      color: COLORS.muted,
+      fontSize: 10,
+      fontWeight: 600,
+      letterSpacing: '0.13em',
+      textTransform: 'uppercase',
+      marginBottom: 9,
+    },
+    title: {
+      fontSize: 24,
+      fontWeight: 700,
+      letterSpacing: '-0.04em',
+      margin: 0,
+      color: COLORS.ink,
+    },
+    subtitle: {
+      color: COLORS.muted,
+      fontSize: 12,
+      lineHeight: 1.7,
+      margin: '7px 0 20px',
+    },
+    panel: {
+      display: 'flex',
+      height: 'calc(100vh - 205px)',
+      minHeight: 420,
+      maxHeight: 760,
+      background: COLORS.paper,
+      border: `1px solid ${COLORS.border}`,
+      borderRadius: 2,
       overflow: 'hidden',
     },
-    convList: {
-      width: 280,
-      borderRight: '1px solid #f0f0f0',
+    conversationList: {
+      width: 285,
+      flex: '0 0 285px',
+      borderRight: `1px solid ${COLORS.border}`,
       overflowY: 'auto',
-      flexShrink: 0,
+      background: COLORS.paper,
     },
-    convHeader: {
-      padding: '16px 16px 12px',
-      fontWeight: 700,
-      fontSize: 15,
-      color: '#1e293b',
-      borderBottom: '1px solid #f0f0f0',
+    listHeader: {
+      position: 'sticky',
+      top: 0,
+      zIndex: 1,
+      padding: '14px 15px',
+      borderBottom: `1px solid ${COLORS.border}`,
+      background: COLORS.paper,
+      color: COLORS.ink,
+      fontSize: 10,
+      fontWeight: 600,
+      letterSpacing: '0.1em',
+      textTransform: 'uppercase',
     },
-    convItem: (active) => ({
-      padding: '14px 16px',
+    conversationItem: (active) => ({
+      width: '100%',
+      boxSizing: 'border-box',
+      display: 'block',
+      textAlign: 'left',
+      padding: '14px 15px',
+      border: 0,
+      borderBottom: `1px solid ${COLORS.border}`,
+      borderLeft: `3px solid ${active ? COLORS.blue : 'transparent'}`,
+      background: active ? '#EEF5FF' : COLORS.paper,
       cursor: 'pointer',
-      borderBottom: '1px solid #f8f8f8',
-      background: active ? '#f0f9ff' : '#fff',
-      borderLeft: active ? '3px solid #0ea5e9' : '3px solid transparent',
+      fontFamily: mono,
     }),
-    convName: { fontWeight: 600, fontSize: 14, color: '#1e293b', marginBottom: 3 },
-    convPreview: {
+    conversationName: {
+      color: COLORS.ink,
       fontSize: 12,
-      color: '#94a3b8',
+      fontWeight: 600,
+      lineHeight: 1.6,
+      overflowWrap: 'anywhere',
+    },
+    preview: {
+      marginTop: 5,
+      color: COLORS.muted,
+      fontSize: 10,
       overflow: 'hidden',
       textOverflow: 'ellipsis',
       whiteSpace: 'nowrap',
     },
-    chatArea: { flex: 1, display: 'flex', flexDirection: 'column' },
-    chatHeader: {
-      padding: '14px 20px',
-      borderBottom: '1px solid #f0f0f0',
-      fontWeight: 700,
-      fontSize: 15,
-      color: '#1e293b',
-    },
-    chatMessages: { flex: 1, overflowY: 'auto', padding: '16px 20px' },
-    bubble: (mine) => ({
-      maxWidth: '70%',
-      padding: '10px 14px',
-      borderRadius: mine ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-      background: mine ? '#0ea5e9' : '#f1f5f9',
-      color: mine ? '#fff' : '#1e293b',
-      fontSize: 14,
-      marginBottom: 8,
-      alignSelf: mine ? 'flex-end' : 'flex-start',
-    }),
-    msgRow: (mine) => ({
-      display: 'flex',
-      justifyContent: mine ? 'flex-end' : 'flex-start',
-      marginBottom: 2,
-    }),
-    msgTime: (mine) => ({
-      fontSize: 10,
-      color: '#94a3b8',
-      marginBottom: 8,
-      textAlign: mine ? 'right' : 'left',
-    }),
-    chatInput: {
-      padding: '12px 16px',
-      borderTop: '1px solid #f0f0f0',
-      display: 'flex',
-      gap: 10,
-    },
-    input: {
+    chatArea: {
       flex: 1,
-      padding: '10px 14px',
-      border: '1.5px solid #e2e8f0',
-      borderRadius: 10,
-      fontSize: 14,
-      outline: 'none',
+      minWidth: 0,
+      display: 'flex',
+      flexDirection: 'column',
+      background: COLORS.paper,
     },
-    sendBtn: {
-      padding: '10px 16px',
-      background: '#0ea5e9',
-      border: 'none',
-      borderRadius: 10,
-      cursor: 'pointer',
+    chatHeader: {
+      minHeight: 51,
+      boxSizing: 'border-box',
+      padding: '13px 18px',
+      borderBottom: `1px solid ${COLORS.border}`,
       display: 'flex',
       alignItems: 'center',
+      gap: 10,
+      fontSize: 12,
+      fontWeight: 600,
+      color: COLORS.ink,
+    },
+    chatMessages: {
+      flex: 1,
+      minHeight: 0,
+      overflowY: 'auto',
+      padding: '18px',
+      display: 'flex',
+      flexDirection: 'column',
+      backgroundImage: 'linear-gradient(#DCE2E720 1px, transparent 1px)',
+      backgroundSize: '100% 32px',
+    },
+    messageRow: (mine) => ({
+      display: 'flex',
+      justifyContent: mine ? 'flex-end' : 'flex-start',
+      marginBottom: 3,
+    }),
+    bubble: (mine) => ({
+      maxWidth: 'min(75%, 520px)',
+      overflowWrap: 'anywhere',
+      padding: '10px 12px',
+      border: `1px solid ${mine ? COLORS.blue : COLORS.border}`,
+      borderRadius: 2,
+      background: mine ? COLORS.blue : COLORS.paper,
+      color: mine ? COLORS.paper : COLORS.ink,
+      fontSize: 12,
+      lineHeight: 1.7,
+      whiteSpace: 'pre-wrap',
+    }),
+    messageTime: (mine) => ({
+      fontSize: 9,
+      color: COLORS.muted,
+      marginBottom: 10,
+      textAlign: mine ? 'right' : 'left',
+      letterSpacing: '0.02em',
+    }),
+    inputBar: {
+      padding: '12px',
+      borderTop: `1px solid ${COLORS.border}`,
+      display: 'flex',
+      gap: 9,
+      background: COLORS.paper,
+    },
+    messageInput: {
+      flex: 1,
+      minWidth: 0,
+      padding: '11px 12px',
+      border: `1px solid ${COLORS.border}`,
+      borderRadius: 2,
+      outlineColor: COLORS.blue,
+      fontFamily: mono,
+      fontSize: 11,
+      color: COLORS.ink,
+      background: COLORS.paper,
+    },
+    sendButton: {
+      flex: '0 0 auto',
+      display: 'inline-flex',
+      alignItems: 'center',
       justifyContent: 'center',
+      gap: 8,
+      padding: '10px 13px',
+      border: `1px solid ${COLORS.blue}`,
+      borderRadius: 2,
+      background: COLORS.blue,
+      color: COLORS.paper,
+      cursor: 'pointer',
+      fontFamily: mono,
+      fontSize: 11,
+      fontWeight: 600,
     },
     empty: {
       flex: 1,
+      minWidth: 0,
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      color: '#94a3b8',
+      color: COLORS.muted,
       flexDirection: 'column',
-      gap: 10,
+      gap: 12,
+      padding: 24,
+      textAlign: 'center',
+      fontSize: 11,
+      lineHeight: 1.8,
     },
   };
 
   if (loading) return <LoadingSpinner fullscreen={false} />;
 
   return (
-    <div>
-      <div style={{ fontSize: 22, fontWeight: 700, color: '#0f172a', marginBottom: 16 }}>
-        Messages
-      </div>
-      <div style={s.container}>
-        {/* Conversation list */}
-        <div style={s.convList}>
-          <div style={s.convHeader}>Conversations</div>
+    <main style={styles.page}>
+      <header style={{ marginBottom: 18, paddingBottom: 17, borderBottom: `1px solid ${COLORS.border}` }}>
+        <div style={styles.eyebrow}>
+          <span style={{ width: 20, height: 2, background: COLORS.orange }} />
+          PATIENT PORTAL / COMMUNICATION
+        </div>
+        <h1 style={styles.title}>Messages<span style={{ color: COLORS.orange }}>.</span></h1>
+        <p style={styles.subtitle}>Private conversations with your healthcare team.</p>
+      </header>
+
+      <section className="docconnect-messages-panel" style={styles.panel} aria-label="Patient messaging">
+        <aside className="docconnect-conversation-list" style={styles.conversationList}>
+          <div style={styles.listHeader}>Conversations <span style={{ color: COLORS.orange }}>[{conversations.length}]</span></div>
           {conversations.length === 0 && (
-            <div style={{ padding: 20, color: '#94a3b8', fontSize: 13 }}>No conversations yet</div>
+            <div style={{ padding: 16, color: COLORS.muted, fontSize: 11, lineHeight: 1.7 }}>
+              No conversations yet.
+            </div>
           )}
-          {conversations.map((c) => {
-            const other = c.participants?.find((p) => p.id !== user?.id);
+          {conversations.map((conversation) => {
+            const active = activeConv?.id === conversation.id;
+            const name = getConversationName(conversation);
             return (
-              <div
-                key={c.id}
-                style={s.convItem(activeConv?.id === c.id)}
-                onClick={() => setActiveConv(c)}
+              <button
+                type="button"
+                key={conversation.id}
+                style={styles.conversationItem(active)}
+                onClick={() => setActiveConv(conversation)}
+                aria-pressed={active}
               >
-                <div style={s.convName}>
-                  {other ? `${other.first_name} ${other.last_name}` : 'Conversation'}
-                  {c.unread_count > 0 && (
-                    <span style={{
-                      marginLeft: 6,
-                      background: '#0ea5e9',
-                      color: '#fff',
-                      borderRadius: 10,
-                      padding: '1px 7px',
-                      fontSize: 11,
-                    }}>
-                      {c.unread_count}
+                <div style={styles.conversationName}>
+                  {name}
+                  {conversation.unread_count > 0 && (
+                    <span
+                      style={{
+                        display: 'inline-block',
+                        marginLeft: 7,
+                        padding: '2px 6px',
+                        background: COLORS.orange,
+                        color: COLORS.paper,
+                        fontSize: 9,
+                        fontWeight: 700,
+                      }}
+                    >
+                      {conversation.unread_count}
                     </span>
                   )}
                 </div>
-                <div style={s.convPreview}>
-                  {c.last_message?.content ?? 'No messages yet'}
+                <div style={styles.preview}>
+                  {conversation.last_message?.content ?? 'No messages yet'}
                 </div>
-              </div>
+              </button>
             );
           })}
-        </div>
+        </aside>
 
-        {/* Chat area */}
         {activeConv ? (
-          <div style={s.chatArea}>
-            <div style={s.chatHeader}>
-              {(() => {
-                const other = activeConv.participants?.find((p) => p.id !== user?.id);
-                return other ? `${other.first_name} ${other.last_name}` : 'Chat';
-              })()}
+          <div className="docconnect-chat-area" style={styles.chatArea}>
+            <div style={styles.chatHeader}>
+              <span style={{ width: 8, height: 8, background: COLORS.orange, display: 'inline-block' }} />
+              <span>{getConversationName(activeConv)}</span>
             </div>
-            <div style={{ ...s.chatMessages, display: 'flex', flexDirection: 'column' }}>
+            <div style={styles.chatMessages}>
               {msgLoading ? (
                 <LoadingSpinner fullscreen={false} size={32} />
+              ) : messages.length === 0 ? (
+                <div style={styles.empty}>
+                  <MessageCircle size={34} color={COLORS.border} />
+                  <div>No messages yet. Start the conversation below.</div>
+                </div>
               ) : (
-                messages.map((m, i) => {
-                  const mine = m.sender === user?.id || m.sender?.id === user?.id;
+                messages.map((message, index) => {
+                  const mine = message.sender === user?.id || message.sender?.id === user?.id;
                   return (
-                    <div key={m.id ?? i}>
-                      <div style={s.msgRow(mine)}>
-                        <div style={s.bubble(mine)}>{m.content}</div>
+                    <div key={message.id ?? index}>
+                      <div style={styles.messageRow(mine)}>
+                        <div style={styles.bubble(mine)}>{message.content}</div>
                       </div>
-                      <div style={s.msgTime(mine)}>
-                        {m.timestamp ? new Date(m.timestamp).toLocaleTimeString() : ''}
+                      <div style={styles.messageTime(mine)}>
+                        {message.timestamp ? new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                       </div>
                     </div>
                   );
@@ -231,25 +362,46 @@ export default function PatientMessages() {
               )}
               <div ref={bottomRef} />
             </div>
-            <form style={s.chatInput} onSubmit={handleSend}>
+            <form style={styles.inputBar} onSubmit={handleSend}>
               <input
-                style={s.input}
-                placeholder="Type a message…"
+                aria-label="Type a message"
+                style={styles.messageInput}
+                placeholder="Write a message..."
                 value={newMsg}
-                onChange={(e) => setNewMsg(e.target.value)}
+                onChange={(event) => setNewMsg(event.target.value)}
               />
-              <button style={s.sendBtn} type="submit">
-                <Send size={18} color="#fff" />
+              <button style={styles.sendButton} type="submit" disabled={!newMsg.trim()}>
+                <Send size={15} /> Send
               </button>
             </form>
           </div>
         ) : (
-          <div style={s.empty}>
-            <MessageCircle size={48} color="#cbd5e1" />
-            <div>Select a conversation to start chatting</div>
+          <div style={styles.empty}>
+            <MessageCircle size={38} color={COLORS.border} />
+            <div>Select a conversation to start chatting.</div>
           </div>
         )}
-      </div>
-    </div>
+      </section>
+
+      <style>{`
+        @media (max-width: 700px) {
+          .docconnect-messages-panel {
+            flex-direction: column !important;
+            height: auto !important;
+            min-height: 70vh !important;
+          }
+          .docconnect-conversation-list {
+            width: 100% !important;
+            flex: 0 0 auto !important;
+            max-height: 190px;
+            border-right: 0 !important;
+            border-bottom: 1px solid ${COLORS.border};
+          }
+          .docconnect-chat-area {
+            min-height: 360px;
+          }
+        }
+      `}</style>
+    </main>
   );
 }

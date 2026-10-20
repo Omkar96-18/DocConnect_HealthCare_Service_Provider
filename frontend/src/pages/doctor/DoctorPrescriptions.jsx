@@ -1,472 +1,333 @@
 import React, { useEffect, useState } from 'react';
-import { getPrescriptions, createPrescription } from '../../api/prescriptions';
-import { getPatients } from '../../api/doctors';
-import { FileText, Plus, QrCode, CheckCircle, Clock, Trash2, X } from 'lucide-react';
+import { getPatients, grantAssistantPermission, revokeAssistantPermission } from '../../api/doctors';
+import {
+  Users,
+  ShieldCheck,
+  ShieldAlert,
+  MessageCircle,
+  FileText,
+  CheckCircle,
+  Clock,
+  Mail,
+  Phone,
+  CalendarDays,
+  Search,
+  ArrowUpRight,
+} from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 
-export default function DoctorPrescriptions() {
-  const [prescriptions, setPrescriptions] = useState([]);
-  const [patients, setPatients] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [selectedBarcode, setSelectedBarcode] = useState(null);
+const colors = {
+  paper: '#FFFFFF',
+  ink: '#101820',
+  blue: '#1769D2',
+  orange: '#F07838',
+  muted: '#6E7882',
+  border: '#DCE2E7',
+  soft: '#F5F8FA',
+  blueSoft: '#EEF5FD',
+  green: '#16805D',
+  greenSoft: '#EAF6F0',
+  amber: '#9A6200',
+  amberSoft: '#FFF5E5',
+  red: '#B83B36',
+  redSoft: '#FFF0EF',
+};
 
-  // New prescription form state
-  const [selectedPatientId, setSelectedPatientId] = useState('');
-  const [diagnosis, setDiagnosis] = useState('');
-  const [notes, setNotes] = useState('');
-  const [medicines, setMedicines] = useState([
-    { name: '', dosage: '', frequency: '', duration: '', instructions: '' },
-  ]);
+const mono = "'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace";
+const ui = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+
+const buttonBase = {
+  minHeight: 40,
+  borderRadius: 5,
+  padding: '10px 13px',
+  fontFamily: mono,
+  fontSize: 11,
+  fontWeight: 700,
+  letterSpacing: '0.025em',
+  textTransform: 'uppercase',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 8,
+  cursor: 'pointer',
+  transition: 'background 150ms ease, border-color 150ms ease, color 150ms ease',
+};
+
+function statusStyle(status) {
+  if (status === 'approved') {
+    return { background: colors.greenSoft, color: colors.green, border: `1px solid #C9E9DA` };
+  }
+  if (status === 'rejected') {
+    return { background: colors.redSoft, color: colors.red, border: `1px solid #F2D0CE` };
+  }
+  return { background: colors.amberSoft, color: colors.amber, border: `1px solid #F0DFBD` };
+}
+
+function displayName(patient) {
+  if (!patient) return 'Patient';
+  const fullName = [patient.first_name, patient.last_name].filter(Boolean).join(' ').trim();
+  return fullName || patient.username || 'Patient';
+}
+
+export default function DoctorPatients() {
+  const [accessList, setAccessList] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [assistantPermitted, setAssistantPermitted] = useState(true);
+  const [permissionBusy, setPermissionBusy] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const navigate = useNavigate();
 
   useEffect(() => {
-    fetchData();
+    fetchAccessList();
   }, []);
 
-  const fetchData = async () => {
+  const fetchAccessList = async () => {
     try {
       setLoading(true);
-      const [rxRes, patRes] = await Promise.all([
-        getPrescriptions(),
-        getPatients(),
-      ]);
-      setPrescriptions(rxRes.data || []);
-      const patList = patRes.data || [];
-      setPatients(patList);
-      if (patList.length > 0 && !selectedPatientId) {
-        const firstId = patList[0].patient_info?.id || patList[0].patient;
-        setSelectedPatientId(firstId);
+      const res = await getPatients();
+      const list = Array.isArray(res.data) ? res.data : (res.data?.results ?? []);
+      setAccessList(list);
+      if (list.length > 0) {
+        setAssistantPermitted(Boolean(list[0].assistant_permission_granted));
       }
     } catch (err) {
-      toast.error('Failed to load prescriptions');
+      toast.error('Failed to load patient access list');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAddMedicine = () => {
-    setMedicines([
-      ...medicines,
-      { name: '', dosage: '', frequency: '', duration: '', instructions: '' },
-    ]);
-  };
-
-  const handleRemoveMedicine = (index) => {
-    setMedicines(medicines.filter((_, i) => i !== index));
-  };
-
-  const handleMedicineChange = (index, field, value) => {
-    const updated = [...medicines];
-    updated[index][field] = value;
-    setMedicines(updated);
-  };
-
-  const handleCreatePrescription = async (e) => {
-    e.preventDefault();
-    if (!selectedPatientId) {
-      toast.error('Please select a patient');
-      return;
-    }
-    const validMeds = medicines.filter((m) => m.name.trim() !== '');
-    if (validMeds.length === 0) {
-      toast.error('Please add at least one medicine');
-      return;
-    }
-
+  const handleToggleAssistantPermission = async (grant) => {
+    if (permissionBusy) return;
+    setPermissionBusy(true);
     try {
-      await createPrescription({
-        patient: selectedPatientId,
-        diagnosis,
-        notes,
-        medicines: validMeds,
-      });
-      toast.success('Prescription generated with secure QR/Barcode!');
-      setShowCreateModal(false);
-      // Reset form
-      setDiagnosis('');
-      setNotes('');
-      setMedicines([{ name: '', dosage: '', frequency: '', duration: '', instructions: '' }]);
-      fetchData();
+      if (grant) {
+        await grantAssistantPermission();
+        toast.success('Permission granted: Assistant can now approve patients for you.');
+        setAssistantPermitted(true);
+      } else {
+        await revokeAssistantPermission();
+        toast.success('Permission revoked: Assistant cannot approve patients without your direct consent.');
+        setAssistantPermitted(false);
+      }
+      await fetchAccessList();
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Failed to create prescription');
+      toast.error('Failed to update assistant permission');
+    } finally {
+      setPermissionBusy(false);
     }
   };
+
+  const filteredPatients = accessList.filter((item) => {
+    const patient = item.patient_info || (typeof item.patient === 'object' ? item.patient : {});
+    const search = searchTerm.trim().toLowerCase();
+    if (!search) return true;
+    return [
+      displayName(patient),
+      patient?.email,
+      patient?.phone,
+      item?.status,
+    ].some((value) => String(value || '').toLowerCase().includes(search));
+  });
+
+  const approvedCount = accessList.filter((item) => item.status === 'approved').length;
+  const pendingCount = accessList.filter((item) => item.status === 'pending').length;
 
   return (
-    <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+    <div style={{ maxWidth: 1240, margin: '0 auto', padding: '8px 0 32px', color: colors.ink, fontFamily: ui }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap');
+        .dp-patient-card { transition: border-color 150ms ease, transform 150ms ease; }
+        .dp-patient-card:hover { border-color: #AABED0 !important; transform: translateY(-1px); }
+        .dp-action:focus-visible, .dp-search:focus-visible { outline: 2px solid ${colors.blue}; outline-offset: 2px; }
+        .dp-action:disabled { opacity: .55; cursor: not-allowed !important; }
+        @media (max-width: 900px) {
+          .dp-header { align-items: flex-start !important; flex-direction: column !important; }
+          .dp-permission { width: 100%; box-sizing: border-box; flex-wrap: wrap; }
+          .dp-stats { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+          .dp-patient-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)) !important; }
+        }
+        @media (max-width: 560px) {
+          .dp-stats { gap: 8px !important; }
+          .dp-stat { padding: 13px !important; }
+          .dp-patient-card-inner { padding: 16px !important; }
+          .dp-permission { align-items: flex-start !important; }
+        }
+      `}</style>
+
+      <div className="dp-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 24, marginBottom: 24 }}>
         <div>
-          <h1 style={{ fontSize: 24, fontWeight: 700, color: '#0f172a', margin: 0 }}>Prescriptions</h1>
-          <p style={{ color: '#64748b', marginTop: 4 }}>
-            Generate digital prescriptions with encoded barcodes that only assistants can validate.
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 9 }}>
+            <span style={{ width: 22, height: 3, background: colors.orange, display: 'inline-block' }} />
+            <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, letterSpacing: '0.13em', color: colors.muted, textTransform: 'uppercase' }}>Doctor workspace / patient access</span>
+          </div>
+          <h1 style={{ fontSize: 'clamp(25px, 3vw, 32px)', lineHeight: 1.2, letterSpacing: '-0.04em', fontWeight: 750, margin: 0, color: colors.ink }}>
+            Consulting Patients<span style={{ color: colors.orange }}>.</span>
+          </h1>
+          <p style={{ margin: '9px 0 0', maxWidth: 600, fontSize: 14, lineHeight: 1.6, color: colors.muted }}>
+            Manage consultation access, review patient requests, and control assistant approval authority.
           </p>
         </div>
 
-        <button
-          onClick={() => setShowCreateModal(true)}
-          style={{
-            background: '#0ea5e9',
-            color: '#fff',
-            border: 'none',
-            padding: '10px 18px',
-            borderRadius: 8,
-            fontSize: 14,
-            fontWeight: 600,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-          }}
-        >
-          <Plus size={18} /> Generate Prescription
-        </button>
-      </div>
-
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: 60, color: '#64748b' }}>Loading prescriptions...</div>
-      ) : prescriptions.length === 0 ? (
-        <div style={{ background: '#fff', padding: 60, borderRadius: 12, border: '1px solid #e2e8f0', textAlign: 'center', color: '#94a3b8' }}>
-          No prescriptions issued yet. Click "Generate Prescription" to issue one!
-        </div>
-      ) : (
-        <div style={{ display: 'grid', gap: 16 }}>
-          {prescriptions.map((rx) => (
-            <div
-              key={rx.id}
-              style={{
-                background: '#fff',
-                borderRadius: 12,
-                border: '1px solid #e2e8f0',
-                padding: 20,
-                boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span style={{ fontSize: 18, fontWeight: 700, color: '#0f172a' }}>
-                      Rx for {rx.patient_info?.first_name ? `${rx.patient_info.first_name} ${rx.patient_info.last_name || ''}`.trim() : (rx.patient_info?.username || `Patient #${rx.patient}`)}
-                    </span>
-                    <span
-                      style={{
-                        padding: '4px 10px',
-                        borderRadius: 999,
-                        fontSize: 12,
-                        fontWeight: 600,
-                        background: rx.is_validated ? '#dcfce7' : '#fef3c7',
-                        color: rx.is_validated ? '#166534' : '#92400e',
-                      }}
-                    >
-                      {rx.is_validated ? 'Validated by Assistant' : 'Pending Assistant Validation'}
-                    </span>
-                  </div>
-
-                  <div style={{ fontSize: 13, color: '#64748b', marginTop: 4 }}>
-                    Prescription ID: <code style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: 4 }}>{rx.id}</code> • {new Date(rx.created_at).toLocaleDateString()}
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => setSelectedBarcode(rx)}
-                  style={{
-                    background: '#f8fafc',
-                    color: '#0ea5e9',
-                    border: '1px solid #cbd5e1',
-                    padding: '8px 14px',
-                    borderRadius: 8,
-                    fontSize: 13,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                  }}
-                >
-                  <QrCode size={16} /> View QR Barcode
-                </button>
-              </div>
-
-              {rx.diagnosis && (
-                <div style={{ marginTop: 12, fontSize: 14 }}>
-                  <strong>Diagnosis:</strong> <span style={{ color: '#334155' }}>{rx.diagnosis}</span>
-                </div>
-              )}
-
-              {/* Medicines List */}
-              <div style={{ marginTop: 16 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', marginBottom: 8 }}>
-                  Prescribed Medicines
-                </div>
-                <div style={{ background: '#f8fafc', borderRadius: 8, padding: 12 }}>
-                  {rx.medicines?.map((med, idx) => (
-                    <div
-                      key={idx}
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: '2fr 1fr 1fr 1fr 2fr',
-                        gap: 10,
-                        padding: '6px 0',
-                        borderBottom: idx < rx.medicines.length - 1 ? '1px solid #e2e8f0' : 'none',
-                        fontSize: 13,
-                      }}
-                    >
-                      <span style={{ fontWeight: 600, color: '#0f172a' }}>{med.name}</span>
-                      <span style={{ color: '#475569' }}>{med.dosage || '-'}</span>
-                      <span style={{ color: '#475569' }}>{med.frequency || '-'}</span>
-                      <span style={{ color: '#475569' }}>{med.duration || '-'}</span>
-                      <span style={{ color: '#64748b' }}>{med.instructions || '-'}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {rx.notes && (
-                <div style={{ marginTop: 12, fontSize: 13, color: '#64748b' }}>
-                  <strong>Doctor Notes:</strong> {rx.notes}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* QR / Barcode Modal */}
-      {selectedBarcode && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-          }}
-        >
-          <div style={{ background: '#fff', borderRadius: 16, padding: 28, maxWidth: 440, width: '90%', textAlign: 'center' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Prescription Validation Barcode</h3>
-              <button onClick={() => setSelectedBarcode(null)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-                <X size={20} color="#64748b" />
-              </button>
-            </div>
-
-            {selectedBarcode.barcode_image_url || selectedBarcode.barcode_image ? (
-              <img
-                src={
-                  selectedBarcode.barcode_image_url ||
-                  (selectedBarcode.barcode_image?.startsWith('http')
-                    ? selectedBarcode.barcode_image
-                    : `http://localhost:8000${selectedBarcode.barcode_image}`)
-                }
-                alt="Prescription QR Code"
-                style={{ width: 220, height: 220, margin: '0 auto', display: 'block', borderRadius: 8, border: '1px solid #e2e8f0' }}
-              />
-            ) : (
-              <div style={{ padding: 40, background: '#f8fafc', borderRadius: 8 }}>QR Image Generating...</div>
-            )}
-
-            <div style={{ marginTop: 16, fontSize: 12, color: '#64748b' }}>
-              Barcode Data Code:
-            </div>
-            <code style={{ background: '#f1f5f9', padding: '6px 12px', borderRadius: 6, fontSize: 13, display: 'inline-block', marginTop: 4 }}>
-              {selectedBarcode.barcode_data || selectedBarcode.id}
-            </code>
-
-            <p style={{ fontSize: 12, color: '#16a34a', marginTop: 14 }}>
-              ✓ Only authorized assistants can decode and validate this barcode at the pharmacy/counter.
-            </p>
+        <div className="dp-permission" style={{ display: 'flex', alignItems: 'center', gap: 16, background: colors.paper, border: `1px solid ${colors.border}`, borderLeft: `3px solid ${assistantPermitted ? colors.blue : colors.orange}`, padding: '14px 16px', minWidth: 330 }}>
+          <div style={{ width: 38, height: 38, flex: '0 0 auto', display: 'grid', placeItems: 'center', background: assistantPermitted ? colors.blueSoft : colors.amberSoft, color: assistantPermitted ? colors.blue : colors.amber }}>
+            {assistantPermitted ? <ShieldCheck size={19} /> : <ShieldAlert size={19} />}
           </div>
-        </div>
-      )}
-
-      {/* Create Prescription Modal */}
-      {showCreateModal && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-            padding: 20,
-          }}
-        >
-          <div
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontFamily: mono, fontSize: 10, color: colors.muted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5 }}>Assistant authority</div>
+            <div style={{ fontSize: 13, fontWeight: 750, color: colors.ink, marginBottom: 3 }}>{assistantPermitted ? 'Enabled' : 'Disabled'}</div>
+            <div style={{ fontSize: 11, lineHeight: 1.45, color: colors.muted }}>{assistantPermitted ? 'Assistant can approve consultation requests' : 'Assistant approval is locked'}</div>
+          </div>
+          <button
+            className="dp-action"
+            type="button"
+            disabled={permissionBusy}
+            onClick={() => handleToggleAssistantPermission(!assistantPermitted)}
             style={{
-              background: '#fff',
-              borderRadius: 16,
-              padding: 24,
-              maxWidth: 700,
-              width: '100%',
-              maxHeight: '90vh',
-              overflowY: 'auto',
+              ...buttonBase,
+              minHeight: 36,
+              padding: '8px 10px',
+              background: assistantPermitted ? colors.paper : colors.blue,
+              color: assistantPermitted ? colors.red : '#FFFFFF',
+              border: `1px solid ${assistantPermitted ? '#E6C7C4' : colors.blue}`,
+              whiteSpace: 'nowrap',
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Create New Prescription</h2>
-              <button onClick={() => setShowCreateModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-                <X size={20} color="#64748b" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreatePrescription}>
-              {/* Patient Selection */}
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6 }}>
-                  Select Patient
-                </label>
-                <select
-                  value={selectedPatientId}
-                  onChange={(e) => setSelectedPatientId(e.target.value)}
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 14 }}
-                  required
-                >
-                  <option value="">-- Choose Patient --</option>
-                  {patients.map((p) => {
-                    const pat = p.patient_info || {};
-                    const patId = pat.id || p.patient;
-                    const patName = pat.first_name ? `${pat.first_name} ${pat.last_name || ''}`.trim() : (pat.username || `Patient #${p.patient}`);
-                    return (
-                      <option key={p.id} value={patId}>
-                        {patName} ({pat.email || 'No email'})
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
-
-              {/* Diagnosis */}
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6 }}>
-                  Clinical Diagnosis
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Hypertension, Viral Bronchitis"
-                  value={diagnosis}
-                  onChange={(e) => setDiagnosis(e.target.value)}
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 14 }}
-                />
-              </div>
-
-              {/* Medicines List */}
-              <div style={{ marginBottom: 20 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                  <label style={{ fontSize: 13, fontWeight: 600, color: '#334155' }}>Prescribed Medicines</label>
-                  <button
-                    type="button"
-                    onClick={handleAddMedicine}
-                    style={{
-                      background: '#f0fdf4',
-                      color: '#16a34a',
-                      border: '1px solid #bbf7d0',
-                      padding: '4px 10px',
-                      borderRadius: 6,
-                      fontSize: 12,
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    + Add Medicine
-                  </button>
-                </div>
-
-                {medicines.map((med, idx) => (
-                  <div key={idx} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 2fr auto', gap: 8, marginBottom: 8, alignItems: 'center' }}>
-                    <input
-                      type="text"
-                      placeholder="Medicine Name"
-                      value={med.name}
-                      onChange={(e) => handleMedicineChange(idx, 'name', e.target.value)}
-                      style={{ padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13 }}
-                      required
-                    />
-                    <input
-                      type="text"
-                      placeholder="Dosage (500mg)"
-                      value={med.dosage}
-                      onChange={(e) => handleMedicineChange(idx, 'dosage', e.target.value)}
-                      style={{ padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13 }}
-                    />
-                    <input
-                      type="text"
-                      placeholder="Frequency (Twice daily)"
-                      value={med.frequency}
-                      onChange={(e) => handleMedicineChange(idx, 'frequency', e.target.value)}
-                      style={{ padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13 }}
-                    />
-                    <input
-                      type="text"
-                      placeholder="Duration (5 days)"
-                      value={med.duration}
-                      onChange={(e) => handleMedicineChange(idx, 'duration', e.target.value)}
-                      style={{ padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13 }}
-                    />
-                    <input
-                      type="text"
-                      placeholder="Instructions (After meals)"
-                      value={med.instructions}
-                      onChange={(e) => handleMedicineChange(idx, 'instructions', e.target.value)}
-                      style={{ padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13 }}
-                    />
-                    {medicines.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveMedicine(idx)}
-                        style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              {/* Notes */}
-              <div style={{ marginBottom: 20 }}>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6 }}>
-                  Doctor Advice / Instructions
-                </label>
-                <textarea
-                  rows={3}
-                  placeholder="Additional lifestyle advice, dietary precautions, follow-up date..."
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 14 }}
-                />
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
-                <button
-                  type="button"
-                  onClick={() => setShowCreateModal(false)}
-                  style={{ padding: '10px 18px', borderRadius: 8, border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer', fontSize: 14 }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  style={{
-                    background: '#0ea5e9',
-                    color: '#fff',
-                    border: 'none',
-                    padding: '10px 22px',
-                    borderRadius: 8,
-                    fontSize: 14,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                  }}
-                >
-                  Generate Barcode & Issue
-                </button>
-              </div>
-            </form>
-          </div>
+            {permissionBusy ? 'Updating…' : assistantPermitted ? 'Revoke' : 'Grant'}
+          </button>
         </div>
-      )}
+      </div>
+
+      <div className="dp-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12, marginBottom: 22 }}>
+        {[
+          { label: 'Total access records', value: accessList.length, icon: <Users size={17} />, accent: colors.blue },
+          { label: 'Approved patients', value: approvedCount, icon: <CheckCircle size={17} />, accent: colors.green },
+          { label: 'Pending requests', value: pendingCount, icon: <Clock size={17} />, accent: colors.orange },
+        ].map((stat) => (
+          <div className="dp-stat" key={stat.label} style={{ background: colors.paper, border: `1px solid ${colors.border}`, padding: '17px 19px', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+              <span style={{ fontFamily: mono, textTransform: 'uppercase', letterSpacing: '0.07em', fontSize: 10, fontWeight: 600, color: colors.muted }}>{stat.label}</span>
+              <span style={{ color: stat.accent }}>{stat.icon}</span>
+            </div>
+            <div style={{ fontSize: 29, lineHeight: 1.2, fontWeight: 750, letterSpacing: '-0.04em', marginTop: 12, color: colors.ink }}>{stat.value}</div>
+            <div style={{ position: 'absolute', left: 0, bottom: 0, height: 3, width: 42, background: stat.accent }} />
+          </div>
+        ))}
+      </div>
+
+      <div style={{ background: colors.paper, border: `1px solid ${colors.border}` }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '17px 20px', borderBottom: `1px solid ${colors.border}`, flexWrap: 'wrap' }}>
+          <div>
+            <h2 style={{ margin: 0, fontSize: 15, fontWeight: 750, color: colors.ink }}>Patient access directory</h2>
+            <p style={{ margin: '5px 0 0', fontSize: 12, color: colors.muted }}>Review status and open the appropriate care workflow.</p>
+          </div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 9, border: `1px solid ${colors.border}`, padding: '9px 11px', minWidth: 220, background: colors.paper }}>
+            <Search size={15} color={colors.muted} />
+            <input
+              className="dp-search"
+              aria-label="Search patients"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search patients..."
+              style={{ width: '100%', border: 0, outline: 0, background: 'transparent', fontFamily: ui, fontSize: 12, color: colors.ink }}
+            />
+          </label>
+        </div>
+
+        {loading ? (
+          <div style={{ padding: 60, textAlign: 'center', color: colors.muted }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, fontFamily: mono, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              <span style={{ width: 7, height: 7, background: colors.blue, display: 'inline-block', borderRadius: '50%' }} />
+              Loading patient records…
+            </div>
+          </div>
+        ) : accessList.length === 0 ? (
+          <div style={{ padding: '56px 24px', textAlign: 'center' }}>
+            <div style={{ width: 54, height: 54, margin: '0 auto 15px', display: 'grid', placeItems: 'center', background: colors.soft, color: colors.muted, border: `1px solid ${colors.border}` }}>
+              <Users size={23} />
+            </div>
+            <h3 style={{ margin: 0, fontSize: 16, color: colors.ink }}>No patient access records</h3>
+            <p style={{ margin: '7px 0 0', fontSize: 13, color: colors.muted }}>Patient consultation requests will appear here.</p>
+          </div>
+        ) : filteredPatients.length === 0 ? (
+          <div style={{ padding: '44px 20px', textAlign: 'center', color: colors.muted, fontSize: 13 }}>No patients match “{searchTerm}”.</div>
+        ) : (
+          <div className="dp-patient-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 0 }}>
+            {filteredPatients.map((item) => {
+              const patient = item.patient_info || (typeof item.patient === 'object' ? item.patient : {});
+              const isApproved = item.status === 'approved';
+              const name = displayName(patient);
+              const initials = name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
+              const requestDate = item.created_at ? new Date(item.created_at).toLocaleDateString() : '—';
+
+              return (
+                <article className="dp-patient-card" key={item.id} style={{ borderRight: `1px solid ${colors.border}`, borderBottom: `1px solid ${colors.border}`, minWidth: 0, background: colors.paper }}>
+                  <div className="dp-patient-card-inner" style={{ padding: 20, display: 'flex', flexDirection: 'column', height: '100%', boxSizing: 'border-box' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+                      <div style={{ display: 'flex', gap: 12, minWidth: 0 }}>
+                        <div style={{ width: 43, height: 43, flex: '0 0 auto', display: 'grid', placeItems: 'center', background: colors.blueSoft, color: colors.blue, border: `1px solid #D5E5F9`, fontFamily: mono, fontWeight: 700, fontSize: 12 }}>
+                          {initials || 'P'}
+                        </div>
+                        <div style={{ minWidth: 0 }}>
+                          <h3 style={{ margin: '1px 0 5px', fontSize: 15, lineHeight: 1.35, fontWeight: 750, color: colors.ink, overflowWrap: 'anywhere' }}>{name}</h3>
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, fontSize: 12, color: colors.muted, overflowWrap: 'anywhere' }}>
+                            <Mail size={13} style={{ flex: '0 0 auto', marginTop: 2 }} />
+                            <span>{patient?.email || 'No email provided'}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <span style={{ ...statusStyle(item.status), flex: '0 0 auto', padding: '4px 7px', fontFamily: mono, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        {item.status || 'unknown'}
+                      </span>
+                    </div>
+
+                    <div style={{ marginTop: 19, padding: '13px 14px', background: colors.soft, border: `1px solid ${colors.border}` }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', gap: 12, marginBottom: 11 }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11, color: colors.muted }}><Phone size={13} /> Phone</span>
+                        <span style={{ fontSize: 12, color: colors.ink, fontWeight: 600, textAlign: 'right', overflowWrap: 'anywhere' }}>{patient?.phone || 'N/A'}</span>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', gap: 12, marginBottom: 11 }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11, color: colors.muted }}><MessageCircle size={13} /> Messaging access</span>
+                        <span style={{ fontSize: 11, fontFamily: mono, fontWeight: 700, color: item.can_message ? colors.green : colors.amber, textAlign: 'right' }}>{item.can_message ? 'UNLOCKED' : 'LOCKED'}</span>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', gap: 12 }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11, color: colors.muted }}><CalendarDays size={13} /> Requested on</span>
+                        <span style={{ fontSize: 12, color: colors.ink, textAlign: 'right' }}>{requestDate}</span>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 9, marginTop: 17, paddingTop: 2 }}>
+                      <button
+                        className="dp-action"
+                        type="button"
+                        disabled={!item.can_message}
+                        onClick={() => navigate('/doctor/messages')}
+                        style={{ ...buttonBase, flex: 1, background: item.can_message ? colors.blue : '#EEF0F2', color: item.can_message ? '#FFFFFF' : '#929BA3', border: `1px solid ${item.can_message ? colors.blue : colors.border}` }}
+                      >
+                        <MessageCircle size={14} /> Chat <ArrowUpRight size={13} />
+                      </button>
+                      <button
+                        className="dp-action"
+                        type="button"
+                        onClick={() => navigate('/doctor/prescriptions')}
+                        style={{ ...buttonBase, flex: 1, background: colors.paper, color: colors.blue, border: `1px solid #B9D1F0` }}
+                      >
+                        <FileText size={14} /> Prescribe <ArrowUpRight size={13} />
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, color: colors.muted, fontSize: 11 }}>
+        <ShieldCheck size={14} color={colors.blue} />
+        <span>Patient access and assistant authority are managed according to your consultation permissions.</span>
+      </div>
     </div>
   );
 }

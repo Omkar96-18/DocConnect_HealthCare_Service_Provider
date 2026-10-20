@@ -1,20 +1,53 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bell } from 'lucide-react';
-import { getNotifications, markNotificationRead, markAllNotificationsRead } from '../api/notifications';
+import { Bell, CheckCheck, Clock3 } from 'lucide-react';
+import {
+  getNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
+} from '../api/notifications';
+
+const C = {
+  white: '#FFFFFF',
+  ink: '#101820',
+  blue: '#1769D2',
+  orange: '#F07838',
+  muted: '#6E7882',
+  line: '#DCE2E7',
+  active: '#EEF5FF',
+};
+
+const font = "'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace";
+
+function formatNotificationTime(value) {
+  if (!value) return 'Time unavailable';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Time unavailable';
+
+  return `${date.toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  })} · ${date.toLocaleTimeString('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })}`;
+}
 
 export default function NotificationBell() {
   const [notifications, setNotifications] = useState([]);
   const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
   const ref = useRef(null);
+  const buttonRef = useRef(null);
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
   const load = async () => {
     try {
       const { data } = await getNotifications();
-      setNotifications(Array.isArray(data) ? data : data.results ?? []);
+      setNotifications(Array.isArray(data) ? data : data?.results ?? []);
     } catch {
-      // silent
+      // Keep notification polling silent so it does not interrupt the user.
     }
   };
 
@@ -24,141 +57,360 @@ export default function NotificationBell() {
     return () => clearInterval(interval);
   }, []);
 
-  // Close on outside click
   useEffect(() => {
-    const handler = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    const handler = (event) => {
+      if (ref.current && !ref.current.contains(event.target)) {
+        setOpen(false);
+      }
     };
+    const escapeHandler = (event) => {
+      if (event.key === 'Escape') {
+        setOpen(false);
+        buttonRef.current?.focus();
+      }
+    };
+
     document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    document.addEventListener('keydown', escapeHandler);
+    return () => {
+      document.removeEventListener('mousedown', handler);
+      document.removeEventListener('keydown', escapeHandler);
+    };
   }, []);
 
   const handleRead = async (id) => {
     try {
       await markNotificationRead(id);
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
+      setNotifications((previous) =>
+        previous.map((item) => item.id === id ? { ...item, is_read: true } : item)
       );
     } catch {
-      // silent
+      // Keep the current state if the request fails.
     }
   };
 
   const handleReadAll = async () => {
+    setLoading(true);
     try {
       await markAllNotificationsRead();
-      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+      setNotifications((previous) => previous.map((item) => ({ ...item, is_read: true })));
     } catch {
-      // silent
+      // Keep the current state if the request fails.
+    } finally {
+      setLoading(false);
     }
   };
 
-  const styles = {
-    container: { position: 'relative' },
-    btn: {
-      background: 'none',
-      border: 'none',
-      cursor: 'pointer',
-      position: 'relative',
-      padding: '6px',
-      borderRadius: '50%',
-      display: 'flex',
-      alignItems: 'center',
-    },
-    badge: {
-      position: 'absolute',
-      top: 0,
-      right: 0,
-      background: '#ef4444',
-      color: '#fff',
-      borderRadius: '50%',
-      width: 18,
-      height: 18,
-      fontSize: 11,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      fontWeight: 700,
-    },
-    dropdown: {
-      position: 'absolute',
-      top: '110%',
-      right: 0,
-      width: 340,
-      background: '#fff',
-      borderRadius: 12,
-      boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
-      zIndex: 1000,
-      overflow: 'hidden',
-    },
-    header: {
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      padding: '12px 16px',
-      borderBottom: '1px solid #f0f0f0',
-      fontWeight: 600,
-      color: '#1e293b',
-    },
-    readAllBtn: {
-      background: 'none',
-      border: 'none',
-      color: '#0ea5e9',
-      cursor: 'pointer',
-      fontSize: 13,
-    },
-    list: { maxHeight: 320, overflowY: 'auto' },
-    item: (read) => ({
-      padding: '12px 16px',
-      borderBottom: '1px solid #f8f8f8',
-      background: read ? '#fff' : '#f0f9ff',
-      cursor: 'pointer',
-    }),
-    itemMsg: { fontSize: 13, color: '#374151', marginBottom: 4 },
-    itemTime: { fontSize: 11, color: '#9ca3af' },
-    empty: { padding: 24, textAlign: 'center', color: '#9ca3af', fontSize: 14 },
-  };
+  const css = `
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
+
+    .dc-notifications, .dc-notifications * {
+      box-sizing: border-box;
+      font-family: ${font};
+    }
+
+    .dc-notifications { position: relative; color: ${C.ink}; }
+
+    .dc-notification-trigger {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 38px;
+      height: 38px;
+      padding: 0;
+      color: ${C.ink};
+      background: ${C.white};
+      border: 1px solid ${C.line};
+      border-radius: 3px;
+      cursor: pointer;
+      transition: border-color .16s ease, background .16s ease;
+    }
+
+    .dc-notification-trigger:hover,
+    .dc-notification-trigger[aria-expanded="true"] {
+      background: ${C.active};
+      border-color: ${C.blue};
+    }
+
+    .dc-notification-trigger:focus-visible,
+    .dc-notification-action:focus-visible,
+    .dc-notification-item:focus-visible {
+      outline: 2px solid ${C.blue};
+      outline-offset: 3px;
+    }
+
+    .dc-notification-count {
+      position: absolute;
+      top: -5px;
+      right: -5px;
+      display: grid;
+      place-items: center;
+      min-width: 17px;
+      height: 17px;
+      padding: 0 4px;
+      color: ${C.white};
+      background: ${C.orange};
+      border: 2px solid ${C.white};
+      font-size: 9px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .dc-notification-panel {
+      position: absolute;
+      top: calc(100% + 10px);
+      right: 0;
+      width: min(370px, calc(100vw - 28px));
+      background: ${C.white};
+      border: 1px solid ${C.line};
+      border-radius: 3px;
+      box-shadow: 0 14px 40px rgba(16,24,32,.12);
+      z-index: 1000;
+      overflow: hidden;
+      animation: dc-notification-enter .14s ease-out;
+    }
+
+    @keyframes dc-notification-enter {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .dc-notification-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 15px 16px 13px;
+      border-bottom: 1px solid ${C.line};
+      border-top: 3px solid ${C.blue};
+    }
+
+    .dc-notification-eyebrow {
+      margin: 0 0 5px;
+      color: ${C.muted};
+      font-size: 8px;
+      line-height: 1.4;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    .dc-notification-heading {
+      margin: 0;
+      color: ${C.ink};
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: -.04em;
+    }
+
+    .dc-notification-action {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 6px 0 6px 6px;
+      color: ${C.blue};
+      background: transparent;
+      border: 0;
+      font-size: 9px;
+      font-weight: 600;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+
+    .dc-notification-action:disabled {
+      opacity: .45;
+      cursor: wait;
+    }
+
+    .dc-notification-list {
+      max-height: 360px;
+      overflow-y: auto;
+    }
+
+    .dc-notification-item {
+      display: block;
+      width: 100%;
+      padding: 13px 16px;
+      text-align: left;
+      color: inherit;
+      background: ${C.white};
+      border: 0;
+      border-bottom: 1px solid ${C.line};
+      border-left: 2px solid transparent;
+      cursor: pointer;
+      transition: background .14s ease;
+    }
+
+    .dc-notification-item:last-child { border-bottom: 0; }
+    .dc-notification-item:hover { background: #F8FAFC; }
+    .dc-notification-item.is-unread {
+      background: ${C.active};
+      border-left-color: ${C.orange};
+    }
+
+    .dc-notification-item-title {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      margin: 0 0 5px;
+      color: ${C.ink};
+      font-size: 10px;
+      line-height: 1.55;
+      font-weight: 600;
+      overflow-wrap: anywhere;
+    }
+
+    .dc-notification-unread-dot {
+      width: 5px;
+      height: 5px;
+      flex: 0 0 5px;
+      margin-top: 5px;
+      background: ${C.orange};
+    }
+
+    .dc-notification-message {
+      margin: 0 0 8px;
+      color: #4F5B66;
+      font-size: 10px;
+      line-height: 1.7;
+      overflow-wrap: anywhere;
+    }
+
+    .dc-notification-time {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      margin: 0;
+      color: ${C.muted};
+      font-size: 8px;
+      line-height: 1.5;
+      letter-spacing: .01em;
+    }
+
+    .dc-notification-empty {
+      padding: 30px 18px;
+      text-align: center;
+    }
+
+    .dc-notification-empty-mark {
+      display: grid;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      margin: 0 auto 12px;
+      color: ${C.blue};
+      background: ${C.active};
+      border: 1px solid ${C.line};
+    }
+
+    .dc-notification-empty-title {
+      margin: 0 0 5px;
+      color: ${C.ink};
+      font-size: 10px;
+      font-weight: 600;
+    }
+
+    .dc-notification-empty-copy {
+      margin: 0;
+      color: ${C.muted};
+      font-size: 9px;
+      line-height: 1.6;
+    }
+
+    .dc-notification-panel-footer {
+      padding: 9px 16px;
+      color: ${C.muted};
+      background: #FCFDFE;
+      border-top: 1px solid ${C.line};
+      font-size: 8px;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .dc-notification-panel { animation: none; }
+      .dc-notification-trigger, .dc-notification-item { transition: none; }
+    }
+  `;
 
   return (
-    <div style={styles.container} ref={ref}>
-      <button style={styles.btn} onClick={() => setOpen((o) => !o)}>
-        <Bell size={22} color="#64748b" />
-        {unreadCount > 0 && <span style={styles.badge}>{unreadCount}</span>}
-      </button>
+    <>
+      <style>{css}</style>
+      <div className="dc-notifications" ref={ref}>
+        <button
+          ref={buttonRef}
+          type="button"
+          className="dc-notification-trigger"
+          onClick={() => setOpen((current) => !current)}
+          aria-label={unreadCount ? `Notifications, ${unreadCount} unread` : 'Notifications'}
+          aria-expanded={open}
+          aria-haspopup="dialog"
+        >
+          <Bell size={18} strokeWidth={1.8} />
+          {unreadCount > 0 && (
+            <span className="dc-notification-count">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          )}
+        </button>
 
-      {open && (
-        <div style={styles.dropdown}>
-          <div style={styles.header}>
-            <span>Notifications</span>
-            {unreadCount > 0 && (
-              <button style={styles.readAllBtn} onClick={handleReadAll}>
-                Mark all read
-              </button>
-            )}
-          </div>
-          <div style={styles.list}>
-            {notifications.length === 0 ? (
-              <div style={styles.empty}>No notifications</div>
-            ) : (
-              notifications.map((n) => (
-                <div
-                  key={n.id}
-                  style={styles.item(n.is_read)}
-                  onClick={() => !n.is_read && handleRead(n.id)}
+        {open && (
+          <section className="dc-notification-panel" role="dialog" aria-label="Notifications">
+            <header className="dc-notification-panel-header">
+              <div>
+                <p className="dc-notification-eyebrow">DocConnect / Updates</p>
+                <h2 className="dc-notification-heading">Notifications<span style={{ color: C.orange }}>.</span></h2>
+              </div>
+              {unreadCount > 0 && (
+                <button
+                  type="button"
+                  className="dc-notification-action"
+                  onClick={handleReadAll}
+                  disabled={loading}
                 >
-                  <div style={{ fontWeight: 600, color: '#0f172a', fontSize: 13, marginBottom: 2 }}>
-                    {n.title}
-                  </div>
-                  <div style={styles.itemMsg}>{n.body}</div>
-                  <div style={styles.itemTime}>
-                    {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {new Date(n.created_at).toLocaleDateString()}
-                  </div>
+                  <CheckCheck size={13} />
+                  {loading ? 'Updating…' : 'Mark all read'}
+                </button>
+              )}
+            </header>
+
+            <div className="dc-notification-list">
+              {notifications.length === 0 ? (
+                <div className="dc-notification-empty">
+                  <div className="dc-notification-empty-mark"><Bell size={17} /></div>
+                  <p className="dc-notification-empty-title">You’re all caught up.</p>
+                  <p className="dc-notification-empty-copy">New updates will appear here when available.</p>
                 </div>
-              ))
-            )}
-          </div>
-        </div>
-      )}
-    </div>
+              ) : (
+                notifications.map((notification) => (
+                  <button
+                    key={notification.id}
+                    type="button"
+                    className={`dc-notification-item${notification.is_read ? '' : ' is-unread'}`}
+                    onClick={() => !notification.is_read && handleRead(notification.id)}
+                    aria-label={`${notification.is_read ? 'Read' : 'Unread'} notification: ${notification.title}`}
+                  >
+                    <span className="dc-notification-item-title">
+                      <span>{notification.title}</span>
+                      {!notification.is_read && <span className="dc-notification-unread-dot" />}
+                    </span>
+                    <span className="dc-notification-message">{notification.body}</span>
+                    <span className="dc-notification-time">
+                      <Clock3 size={11} />
+                      {formatNotificationTime(notification.created_at)}
+                    </span>
+                  </button>
+                ))
+              )}
+            </div>
+
+            <footer className="dc-notification-panel-footer">
+              Secure healthcare portal / DC-01
+            </footer>
+          </section>
+        )}
+      </div>
+    </>
   );
 }

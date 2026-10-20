@@ -1,147 +1,283 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import NotificationBell from './NotificationBell';
-import { LogOut, User, Activity } from 'lucide-react';
+import { LogOut } from 'lucide-react';
+
+const C = {
+  white: '#FFFFFF',
+  ink: '#101820',
+  blue: '#1769D2',
+  orange: '#F07838',
+  muted: '#6E7882',
+  line: '#DCE2E7',
+  active: '#EEF5FF',
+  green: '#2B9A66',
+};
+
+const ROLE_LABELS = {
+  doctor: 'Doctor',
+  assistant: 'Medical assistant',
+  patient: 'Patient',
+  admin: 'Administrator',
+};
 
 export default function Navbar() {
   const { user, profile, logout } = useAuth();
 
-  const getRoleBadgeStyle = (role) => {
-    switch (role) {
-      case 'doctor':
-        return { bg: '#e0f2fe', color: '#0369a1', border: '#bae6fd' };
-      case 'assistant':
-        return { bg: '#fef3c7', color: '#92400e', border: '#fde68a' };
-      case 'patient':
-        return { bg: '#dcfce7', color: '#166534', border: '#bbf7d0' };
-      case 'admin':
-        return { bg: '#f3e8ff', color: '#7e22ce', border: '#e9d5ff' };
-      default:
-        return { bg: '#f1f5f9', color: '#475569', border: '#e2e8f0' };
-    }
-  };
+  const initials = (
+    profile?.first_name?.[0] ||
+    user?.first_name?.[0] ||
+    user?.username?.[0] ||
+    'U'
+  ).toUpperCase();
 
-  const roleStyle = getRoleBadgeStyle(user?.role);
-  const initials = (profile?.first_name?.[0] || user?.first_name?.[0] || user?.username?.[0] || 'U').toUpperCase();
   const displayName = profile?.first_name
     ? `${profile.first_name} ${profile.last_name || ''}`.trim()
     : user?.first_name
     ? `${user.first_name} ${user.last_name || ''}`.trim()
     : user?.username || 'User';
 
+  const roleLabel = ROLE_LABELS[user?.role] || 'User portal';
+
   return (
-    <header
-      style={{
-        height: 64,
-        background: '#ffffff',
-        borderBottom: '1px solid #e2e8f0',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '0 28px',
-        flexShrink: 0,
-        zIndex: 50,
-      }}
-    >
-      {/* Left: Portal Context Indicator */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981' }} />
-        <span style={{ fontSize: 13, fontWeight: 600, color: '#475569' }}>
-          DocConnect Platform
-        </span>
-        <span style={{ color: '#cbd5e1' }}>/</span>
-        <span
-          style={{
-            fontSize: 11.5,
-            fontWeight: 700,
-            textTransform: 'uppercase',
-            letterSpacing: '0.04em',
-            padding: '3px 8px',
-            borderRadius: 6,
-            background: roleStyle.bg,
-            color: roleStyle.color,
-            border: `1px solid ${roleStyle.border}`,
-          }}
-        >
-          {user?.role} portal
-        </span>
-      </div>
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
 
-      {/* Right: Actions & User Info */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-        <NotificationBell />
+        .dc-navbar, .dc-navbar * {
+          box-sizing: border-box;
+          font-family: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+        }
 
-        {/* User Pill */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            padding: '4px 10px 4px 4px',
-            borderRadius: 999,
-            background: '#f8fafc',
-            border: '1px solid #e2e8f0',
-          }}
-        >
-          <div
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: '50%',
-              background: '#0284c7',
-              color: '#ffffff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 700,
-              fontSize: 13,
-            }}
-          >
-            {initials}
+        .dc-navbar {
+          position: relative;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 18px;
+          min-height: 76px;
+          padding: 12px clamp(14px, 2.2vw, 28px);
+          flex-shrink: 0;
+          z-index: 50;
+          color: ${C.ink};
+          background: rgba(255,255,255,.97);
+          border-bottom: 1px solid ${C.line};
+        }
+
+        .dc-navbar::before {
+          content: "";
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 100%;
+          height: 2px;
+          background: linear-gradient(90deg, ${C.blue} 0 72%, ${C.orange} 72% 100%);
+          pointer-events: none;
+        }
+
+        .dc-navbar-context {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 9px;
+          min-width: 0;
+        }
+
+        .dc-navbar-brand {
+          color: ${C.ink};
+          font-size: 12px;
+          font-weight: 600;
+          letter-spacing: -.045em;
+          white-space: nowrap;
+        }
+
+        .dc-navbar-brand-period { color: ${C.orange}; }
+
+        .dc-navbar-separator {
+          color: ${C.line};
+          font-size: 14px;
+        }
+
+        .dc-navbar-context-label {
+          color: ${C.muted};
+          font-size: 9px;
+          letter-spacing: .08em;
+          text-transform: uppercase;
+        }
+
+        .dc-navbar-role {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 5px 7px;
+          color: ${C.blue};
+          background: ${C.active};
+          border: 1px solid #D7E6FA;
+          font-size: 9px;
+          font-weight: 600;
+          letter-spacing: .025em;
+          text-transform: uppercase;
+          white-space: nowrap;
+        }
+
+        .dc-navbar-role-dot {
+          width: 5px;
+          height: 5px;
+          background: ${C.orange};
+        }
+
+        .dc-navbar-actions {
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 12px;
+          min-width: 0;
+        }
+
+        .dc-navbar-user {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          min-width: 0;
+          padding: 5px 11px 5px 5px;
+          border: 1px solid ${C.line};
+          background: ${C.white};
+        }
+
+        .dc-navbar-avatar {
+          display: grid;
+          place-items: center;
+          width: 32px;
+          height: 32px;
+          flex: 0 0 32px;
+          color: ${C.white};
+          background: ${C.ink};
+          border-top: 2px solid ${C.orange};
+          font-size: 11px;
+          font-weight: 600;
+        }
+
+        .dc-navbar-user-details { min-width: 0; }
+
+        .dc-navbar-user-name {
+          max-width: 190px;
+          overflow: hidden;
+          color: ${C.ink};
+          font-size: 10px;
+          font-weight: 600;
+          line-height: 1.5;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .dc-navbar-username {
+          max-width: 190px;
+          overflow: hidden;
+          color: ${C.muted};
+          font-size: 9px;
+          line-height: 1.5;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .dc-navbar-logout {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 7px;
+          min-height: 38px;
+          padding: 8px 11px;
+          color: ${C.muted};
+          background: ${C.white};
+          border: 1px solid ${C.line};
+          font-size: 9px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: color .16s ease, border-color .16s ease, background .16s ease;
+          white-space: nowrap;
+        }
+
+        .dc-navbar-logout:hover {
+          color: #B42318;
+          background: #FFF5F3;
+          border-color: #F2C4BE;
+        }
+
+        .dc-navbar-logout:focus-visible,
+        .dc-navbar-user:focus-visible {
+          outline: 2px solid ${C.blue};
+          outline-offset: 3px;
+        }
+
+        @media (max-width: 700px) {
+          .dc-navbar {
+            min-height: 68px;
+            gap: 10px;
+            padding: 10px 12px;
+          }
+
+          .dc-navbar-context-label,
+          .dc-navbar-separator {
+            display: none;
+          }
+
+          .dc-navbar-context { gap: 7px; }
+          .dc-navbar-brand { font-size: 11px; }
+          .dc-navbar-actions { gap: 7px; }
+          .dc-navbar-user { gap: 7px; padding-right: 7px; }
+          .dc-navbar-user-name { max-width: 110px; }
+          .dc-navbar-username { max-width: 110px; }
+          .dc-navbar-logout { width: 36px; min-width: 36px; padding: 0; }
+          .dc-navbar-logout-label { display: none; }
+        }
+
+        @media (max-width: 440px) {
+          .dc-navbar-role { display: none; }
+          .dc-navbar-user-name { max-width: 88px; }
+          .dc-navbar-username { max-width: 88px; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .dc-navbar-logout { transition: none; }
+        }
+      `}</style>
+
+      <header className="dc-navbar">
+        <div className="dc-navbar-context">
+          <div className="dc-navbar-brand">
+            DocConnect<span className="dc-navbar-brand-period">.</span>
           </div>
-          <div style={{ paddingRight: 4 }}>
-            <div style={{ fontWeight: 600, color: '#0f172a', fontSize: 13, lineHeight: 1.2 }}>
-              {displayName}
-            </div>
-            <div style={{ fontSize: 11, color: '#64748b', textTransform: 'capitalize' }}>
-              @{user?.username}
-            </div>
-          </div>
+          <span className="dc-navbar-separator">/</span>
+          <span className="dc-navbar-context-label">Secure healthcare portal</span>
+          <span className="dc-navbar-role">
+            <span className="dc-navbar-role-dot" />
+            {roleLabel}
+          </span>
         </div>
 
-        {/* Logout Button */}
-        <button
-          onClick={logout}
-          title="Sign out of your account"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            background: '#fff',
-            border: '1px solid #e2e8f0',
-            borderRadius: 8,
-            padding: '7px 12px',
-            cursor: 'pointer',
-            color: '#64748b',
-            fontSize: 13,
-            fontWeight: 600,
-            transition: 'all 0.15s ease',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.color = '#ef4444';
-            e.currentTarget.style.borderColor = '#fca5a5';
-            e.currentTarget.style.background = '#fef2f2';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.color = '#64748b';
-            e.currentTarget.style.borderColor = '#e2e8f0';
-            e.currentTarget.style.background = '#fff';
-          }}
-        >
-          <LogOut size={15} />
-          <span>Logout</span>
-        </button>
-      </div>
-    </header>
+        <div className="dc-navbar-actions">
+          <NotificationBell />
+
+          <div className="dc-navbar-user" aria-label={`Signed in as ${displayName}`}>
+            <div className="dc-navbar-avatar" aria-hidden="true">{initials}</div>
+            <div className="dc-navbar-user-details">
+              <div className="dc-navbar-user-name">{displayName}</div>
+              <div className="dc-navbar-username">@{user?.username || 'user'}</div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            className="dc-navbar-logout"
+            onClick={logout}
+            title="Sign out of your account"
+            aria-label="Sign out of your account"
+          >
+            <LogOut size={14} />
+            <span className="dc-navbar-logout-label">Sign out</span>
+          </button>
+        </div>
+      </header>
+    </>
   );
 }
